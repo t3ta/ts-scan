@@ -1,15 +1,76 @@
-import { Node, SyntaxKind, SourceFile } from 'ts-morph';
-import { isNodeOfType } from '@types/ast';
-import { NodeExtractors } from './NodeExtractors';
+import { Node, SyntaxKind, SourceFile, Expression, ParameterDeclaration } from 'ts-morph';
 import { logger } from '../Logger';
 import { NodeTraversal } from './NodeTraversal';
+import { NodeExtractors } from './NodeExtractors';
 
-export class NodeExtractorsExtended extends NodeExtractors {
+export interface ObjectProperty {
+  name: string;
+  value: Expression | undefined;
+}
+
+export interface TypeAnnotationInfo {
+  typeName: string;
+  location?: { line: number; column: number };
+}
+
+export class NodeExtractorsExtended {
   /**
-   * ソースファイル内の変数宣言を検索する型安全な関数
-   * @param sourceFile 対象ソースファイル
-   * @param variableName 検索する変数名
-   * @returns 変数宣言ノードの配列
+   * モジュールパスを解決する
+   * @param sourceFilePath ソースファイルパス
+   * @param moduleSpecifier モジュール指定子
+   * @returns 解決されたフルパス
+   */
+  public static resolveModulePath(sourceFilePath: string, moduleSpecifier: string): string {
+    return NodeExtractors.resolveModulePath(sourceFilePath, moduleSpecifier);
+  }
+  /**
+   * JSONコンテンツをボディから抽出する関数
+   */
+  public static extractJsonContentFromBody(node: Node): { [key: string]: any } | undefined {
+    if (!Node.isObjectLiteralExpression(node)) {
+      return undefined;
+    }
+
+    const result: { [key: string]: any } = {};
+    const properties = node.getProperties();
+
+    for (const prop of properties) {
+      if (Node.isPropertyAssignment(prop)) {
+        const name = prop.getName();
+        const value = prop.getInitializer();
+        if (value) {
+          result[name] = this.extractValueFromNode(value);
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * ノードから値を抽出するヘルパー関数
+   */
+  private static extractValueFromNode(node: Node): any {
+    if (Node.isStringLiteral(node)) {
+      return node.getText().replace(/['"]/g, '');
+    }
+    if (Node.isNumericLiteral(node)) {
+      return Number(node.getText());
+    }
+    if (node.getKind() === SyntaxKind.TrueKeyword || node.getKind() === SyntaxKind.FalseKeyword) {
+      return node.getText() === 'true';
+    }
+    if (Node.isObjectLiteralExpression(node)) {
+      return this.extractJsonContentFromBody(node);
+    }
+    if (Node.isArrayLiteralExpression(node)) {
+      return node.getElements().map(el => this.extractValueFromNode(el));
+    }
+    return undefined;
+  }
+
+  /**
+   * ソースファイル内の変数宣言を検索する関数
    */
   public static findVariableDeclarations(sourceFile: SourceFile, variableName: string): Node[] {
     return sourceFile
@@ -19,80 +80,296 @@ export class NodeExtractorsExtended extends NodeExtractors {
 
   /**
    * ノード位置情報を安全に取得する関数
-   * @param node 対象ノード
-   * @returns 位置情報オブジェクト
    */
   public static getNodeLocation(node: Node): { line: number; column: number; sourceFile: string } {
     const sourceFile = node.getSourceFile();
     const pos = node.getStart();
-    const { line, character: column } = sourceFile.getLineAndColumnAtPos(pos);
+    const lineAndChar = sourceFile.getLineAndColumnAtPos(pos);
 
     return {
-      line,
-      column,
+      line: lineAndChar.line,
+      column: lineAndChar.column,
       sourceFile: sourceFile.getFilePath()
     };
   }
 
   /**
-   * 型情報を安全に抽出する関数
-   * @param node 対象ノード
-   * @returns 型情報文字列、または null
+   * 文字列値を安全に抽出する関数
    */
-  public static extractTypeAnnotation(node: Node): string | null {
-    if (isNodeOfType(node, Node.isVariableDeclaration)) {
-      const typeNode = node.getTypeNode();
-      return typeNode ? typeNode.getText() : null;
+  public static extractStringValue(node: Node | undefined): string | null {
+    if (!node) return null;
+
+    if (Node.isStringLiteral(node)) {
+      return node.getText().replace(/['"]/g, '');
     }
 
-    if (isNodeOfType(node, Node.isParameterDeclaration)) {
-      const typeNode = node.getTypeNode();
-      return typeNode ? typeNode.getText() : null;
+    if (Node.isPropertyAssignment(node)) {
+      const initializer = node.getInitializer();
+      return initializer && Node.isStringLiteral(initializer)
+        ? initializer.getText().replace(/['"]/g, '')
+        : null;
     }
 
     return null;
   }
 
   /**
+   * オブジェクトリテラルからプロパティ値を抽出する関数
+   */
+  public static getPropertyFromObjectLiteral(node: Node, propertyName: string): Expression | undefined {
+    return this.extractPropertyValue(node, propertyName);
+  }
+
+  /**
+   * オブジェクトリテラルからプロパティ値を抽出する関数
+   */
+  public static extractPropertyValue(node: Node, propertyName: string): Expression | undefined {
+    if (!Node.isObjectLiteralExpression(node)) return undefined;
+
+    const properties = node.getProperties();
+    for (const prop of properties) {
+      if (Node.isPropertyAssignment(prop) && prop.getName() === propertyName) {
+        return prop.getInitializer();
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * オブジェクトリテラルから全プロパティを抽出する関数
+   */
+  public static extractObjectProperties(node: Node): ObjectProperty[] {
+    if (!Node.isObjectLiteralExpression(node)) return [];
+
+    const properties: ObjectProperty[] = [];
+    const objectProperties = node.getProperties();
+
+    for (const prop of objectProperties) {
+      if (Node.isPropertyAssignment(prop)) {
+        properties.push({
+          name: prop.getName(),
+          value: prop.getInitializer()
+        });
+      }
+    }
+
+    return properties;
+  }
+
+  /**
+   * URLからクエリパラメータを抽出する関数
+   */
+  public static extractQueryParameters(urlValue: string): string[] {
+    const params: string[] = [];
+    try {
+      const url = new URL(urlValue.startsWith('http') ? urlValue : `http://example.com${urlValue}`);
+      url.searchParams.forEach((value, key) => {
+        params.push(key);
+      });
+    } catch (error) {
+      logger.warn(`Invalid URL: ${urlValue}`);
+    }
+    return params;
+  }
+
+  /**
+   * URLからパスパラメータを抽出する関数
+   */
+  public static extractPathParameters(urlValue: string): string[] {
+    const params: string[] = [];
+    const pathParamRegex = /[:$]\{?([a-zA-Z0-9_]+)\}?/g;
+    let match;
+
+    while ((match = pathParamRegex.exec(urlValue)) !== null) {
+      params.push(match[1]);
+    }
+
+    return params;
+  }
+
+  /**
+   * レスポンス変換処理の検出
+   */
+  public static detectResponseTransformation(node: Node): boolean {
+    if (Node.isBlock(node)) {
+      const statements = node.getStatements();
+      if (statements.length > 1) {
+        return true;
+      }
+      const hasArrayTransformation = NodeTraversal.findFirstDescendant(
+        node,
+        n => {
+          if (!Node.isCallExpression(n)) return false;
+          const expr = n.getExpression();
+          if (!Node.isPropertyAccessExpression(expr)) return false;
+          const methodName = expr.getName();
+          return ['map', 'filter', 'reduce', 'transform'].includes(methodName);
+        }
+      );
+      if (hasArrayTransformation) return true;
+    }
+    return false;
+  }
+
+  /**
+   * メソッドチェーンを解析する関数
+   */
+  public static findMethodChain(node: Node): Node[] {
+    const chain: Node[] = [];
+    let current = node;
+
+    while (Node.isCallExpression(current) || Node.isPropertyAccessExpression(current)) {
+      chain.push(current);
+      if (Node.isCallExpression(current)) {
+        current = current.getExpression();
+      } else {
+        current = current.getExpression();
+      }
+    }
+
+    return chain;
+  }
+
+  /**
+   * コールバック関数のボディを抽出する関数
+   */
+  public static extractCallbackBody(node: Node): Node | undefined {
+    if (Node.isArrowFunction(node) || Node.isFunctionExpression(node)) {
+      return node.getBody();
+    }
+    return undefined;
+  }
+
+  /**
+   * 戻り値の型情報を抽出する関数
+   */
+  public static extractReturnType(node: Node): string | undefined {
+    const parentFunc = NodeTraversal.findFirstAncestor(
+      node,
+      n => Node.isMethodDeclaration(n) || Node.isFunctionDeclaration(n)
+    );
+
+    if (Node.isMethodDeclaration(parentFunc) || Node.isFunctionDeclaration(parentFunc)) {
+      const returnTypeNode = parentFunc.getReturnTypeNode();
+      return returnTypeNode?.getText();
+    }
+
+    return undefined;
+  }
+
+  /**
+   * await式を探索する関数
+   */
+  public static findAwaitExpression(node: Node): Node | undefined {
+    return NodeTraversal.findFirstAncestor(
+      node,
+      n => n.getKind() === SyntaxKind.AwaitExpression
+    );
+  }
+
+  /**
+   * 代入式を探索する関数
+   */
+  public static findAssignmentExpression(node: Node): Node | undefined {
+    return NodeTraversal.findFirstAncestor(
+      node,
+      n => n.getKind() === SyntaxKind.BinaryExpression &&
+           n.getFirstDescendantByKind(SyntaxKind.EqualsToken) !== undefined
+    );
+  }
+
+  /**
+   * 変数の型アノテーションを抽出する関数
+   */
+  public static extractVariableTypeAnnotation(node: Node): string | undefined {
+    if (Node.isVariableDeclaration(node)) {
+      const typeNode = node.getTypeNode();
+      return typeNode?.getText();
+    }
+    return undefined;
+  }
+
+  /**
+   * ノードの開始位置の行と列を取得する関数
+   */
+  public static getStartLineAndColumn(node: Node): { line: number; column: number } {
+    const sourceFile = node.getSourceFile();
+    const start = node.getStart();
+    const { line, column } = sourceFile.getLineAndColumnAtPos(start);
+    return { line, column };
+  }
+
+  /**
+   * 型アノテーション情報を抽出する関数
+   */
+  public static extractTypeAnnotation(node: Node): TypeAnnotationInfo[] {
+    const typeInfos: TypeAnnotationInfo[] = [];
+
+    if (Node.isVariableDeclaration(node)) {
+      const typeNode = node.getTypeNode();
+      if (typeNode) {
+        typeInfos.push({
+          typeName: typeNode.getText(),
+          location: this.getNodeLocation(typeNode)
+        });
+      }
+    }
+
+    if (Node.isParameterDeclaration(node)) {
+      const typeNode = node.getTypeNode();
+      if (typeNode) {
+        typeInfos.push({
+          typeName: typeNode.getText(),
+          location: this.getNodeLocation(typeNode)
+        });
+      }
+    }
+
+    return typeInfos;
+  }
+
+  /**
    * コンテキスト推論の改良された関数
-   * @param node 対象ノード
-   * @returns コンテキスト情報文字列
    */
   public static inferNodeContext(node: Node): string {
     const functionContext = NodeTraversal.findFirstAncestor(
       node,
-      n => isNodeOfType(n, Node.isFunctionDeclaration) || 
-           isNodeOfType(n, Node.isMethodDeclaration) || 
-           isNodeOfType(n, Node.isArrowFunction)
+      n => Node.isFunctionDeclaration(n) ||
+           Node.isMethodDeclaration(n) ||
+           Node.isArrowFunction(n)
     );
 
     if (functionContext) {
-      if (isNodeOfType(functionContext, Node.isFunctionDeclaration)) {
-        return functionContext.getName() || '(無名関数)';
+      if (Node.isFunctionDeclaration(functionContext)) {
+        const name = functionContext.getName();
+        return name ? name : '(無名関数)';
       }
-      if (isNodeOfType(functionContext, Node.isMethodDeclaration)) {
-        return functionContext.getName() || '(無名メソッド)';
+      if (Node.isMethodDeclaration(functionContext)) {
+        const name = functionContext.getName();
+        return name ? name : '(無名メソッド)';
       }
-      if (isNodeOfType(functionContext, Node.isArrowFunction)) {
+      if (Node.isArrowFunction(functionContext)) {
         const parent = functionContext.getParent();
-        return isNodeOfType(parent, Node.isVariableDeclaration) 
-          ? parent.getName() 
-          : '(アロー関数)';
+        if (parent && Node.isVariableDeclaration(parent)) {
+          const name = parent.getName();
+          return name ? name : '(アロー関数)';
+        }
+        return '(アロー関数)';
       }
     }
 
     const classContext = NodeTraversal.findFirstAncestor(
       node,
-      n => isNodeOfType(n, Node.isClassDeclaration)
+      n => Node.isClassDeclaration(n)
     );
 
-    if (classContext && isNodeOfType(classContext, Node.isClassDeclaration)) {
-      return classContext.getName() || '(無名クラス)';
+    if (classContext && Node.isClassDeclaration(classContext)) {
+      const name = classContext.getName();
+      return name ? name : '(無名クラス)';
     }
 
     const sourceFile = node.getSourceFile();
     return sourceFile.getBaseName().replace(/\.[^/.]+$/, '');
   }
-
-  // 他のメソッドも同様に型安全性を向上させる
 }

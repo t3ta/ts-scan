@@ -59,7 +59,7 @@ export class RtkQueryApiParser {
       
       // 2. エンドポイント定義の解析
       // APIメタデータは既にmanagerに登録されているので、設定オブジェクトを取得して直接渡す
-      const configObject = node.getFirstDescendant(n => n.getKind() === Node.isObjectLiteralExpression);
+      const configObject = node.getFirstDescendant(n => Node.isObjectLiteralExpression(n));
       if (configObject && Node.isObjectLiteralExpression(configObject)) {
         this.endpointDefinitionParser.parseEndpointBuilder(configObject, apiMetadata, context);
       }

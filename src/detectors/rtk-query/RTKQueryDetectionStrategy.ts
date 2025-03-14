@@ -81,8 +81,8 @@ export class RTKQueryDetectionStrategy extends BaseDetectionStrategy {
     logger.debug(`[${this.name}] createApiのスキャン開始: ${sourceFile.getFilePath()}`);
     
     // createApi関数呼び出しを検索
-    // NodeTraversal.findNodesに代えてcollectDescendantsを使用
-    const nodes = NodeTraversal.collectDescendants(
+    // NodeTraversal.findNodesを使用
+    const nodes = NodeTraversal.findNodes(
       sourceFile, 
       NodePredicates.isCreateApiCallExpression
     );

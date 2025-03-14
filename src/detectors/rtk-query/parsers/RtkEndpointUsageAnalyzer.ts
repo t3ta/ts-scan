@@ -224,7 +224,10 @@ export class RtkEndpointUsageAnalyzer {
     const context = functionDecl ? 
       (functionDecl.getKind() === SyntaxKind.ArrowFunction ? 
         '(anonymous function)' : 
-        functionDecl.getName() || '(unnamed function)'
+        (Node.isMethodDeclaration(functionDecl) || Node.isFunctionDeclaration(functionDecl) ? 
+          functionDecl.getName() || '(unnamed function)' : 
+          '(unnamed function)'
+        )
       ) : undefined;
     
     return NodeExtractors.createUsageLocation(node, sourceFile, context);

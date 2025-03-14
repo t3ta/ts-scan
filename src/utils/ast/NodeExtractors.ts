@@ -17,6 +17,46 @@ import { NodeTraversal } from './NodeTraversal';
  */
 export class NodeExtractors {
   /**
+   * モジュールパスを解決する
+   * @param sourceFilePath ソースファイルパス
+   * @param moduleSpecifier モジュール指定子
+   * @returns 解決されたフルパス
+   */
+  public static resolveModulePath(sourceFilePath: string, moduleSpecifier: string): string {
+    if (!sourceFilePath || !moduleSpecifier) {
+      return '';
+    }
+    
+    // 絶対URLの場合はそのまま返す
+    if (moduleSpecifier.startsWith('/') || 
+        moduleSpecifier.includes('://')) {
+      return moduleSpecifier;
+    }
+    
+    // 相対URLの解決
+    const sourceDirPath = sourceFilePath.substring(0, sourceFilePath.lastIndexOf('/'));
+    let resolvedPath = '';
+    
+    if (moduleSpecifier.startsWith('./')) {
+      resolvedPath = `${sourceDirPath}/${moduleSpecifier.substring(2)}`;
+    } else if (moduleSpecifier.startsWith('../')) {
+      // 解決が簡単な場合のみ対応
+      const parentDir = sourceDirPath.substring(0, sourceDirPath.lastIndexOf('/'));
+      resolvedPath = `${parentDir}/${moduleSpecifier.substring(3)}`;
+    } else {
+      // 単純な名前の場合は同じディレクトリ内と仮定
+      resolvedPath = `${sourceDirPath}/${moduleSpecifier}`;
+    }
+    
+    // 拡張子の付加
+    if (!resolvedPath.endsWith('.ts') && !resolvedPath.endsWith('.tsx')) {
+      resolvedPath += '.ts';
+    }
+    
+    return resolvedPath;
+  }
+  
+  /**
    * HTTPメソッドを抽出
    * @param node 対象ノード
    * @returns HTTPメソッド、推論できない場合はGET

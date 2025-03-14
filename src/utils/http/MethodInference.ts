@@ -14,6 +14,15 @@ import { logger } from '../Logger';
  */
 export class MethodInference {
   /**
+   * 有効なHTTPメソッドかどうかを判定
+   * @param method 判定対象のメソッド文字列
+   * @returns 有効なHTTPメソッドの場合true
+   */
+  public static isValidHttpMethod(method: string): boolean {
+    return ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'].includes(method.toUpperCase());
+  }
+
+  /**
    * 関数名または変数名からHTTPメソッドを推論
    * @param name 関数名または変数名
    * @returns 推論されたHTTPメソッド、判断できない場合はGET

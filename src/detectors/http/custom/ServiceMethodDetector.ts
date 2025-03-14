@@ -20,7 +20,8 @@ import { NodePredicates } from '../../../utils/ast/NodePredicates';
 import { NodeExtractorsExtended } from '../../../utils/ast/NodeExtractorsExtended';
 import { MethodInference } from '../../../utils/http/MethodInference';
 import { ServiceIds } from '../../../core/ServiceLocator';
-import { logger } from '../../../utils/Logger';
+import { EndpointBuilder } from '../../common/EndpointBuilder';
+// import { logger } from '../../../utils/Logger';
 
 /**
  * サービスクラスメソッド検出器
@@ -86,9 +87,10 @@ export class ServiceMethodDetector extends BasePatternDetector {
    */
   public extractEndpoints(node: Node, context: DetectionContext): EndpointInfo[] {
     const callExpr = node;
-    const propExpr = callExpr.getExpression();
+    // ノードが CallExpression であることを確認してから getExpression を呼び出す
+    const propExpr = callExpr.isKind(SyntaxKind.CallExpression) ? callExpr.getExpression() : undefined;
     
-    if (!propExpr.isKind(SyntaxKind.PropertyAccessExpression)) {
+    if (!propExpr || !propExpr.isKind(SyntaxKind.PropertyAccessExpression)) {
       return [];
     }
     
@@ -191,7 +193,7 @@ export class ServiceMethodDetector extends BasePatternDetector {
       else if (args.some(arg => arg.isKind(SyntaxKind.ObjectLiteralExpression))) {
         const objArg = args.find(arg => arg.isKind(SyntaxKind.ObjectLiteralExpression));
         if (objArg && objArg.isKind(SyntaxKind.ObjectLiteralExpression)) {
-          const objProps = NodeExtractors.extractObjectProperties(objArg);
+          const objProps = NodeExtractorsExtended.extractObjectProperties(objArg);
           
           // POSTやPUTの場合はボディパラメータ、GETの場合はクエリパラメータとして扱う
           const paramType: ParameterType = (httpMethod === 'GET') ? 'query' : 'body';
@@ -225,7 +227,7 @@ export class ServiceMethodDetector extends BasePatternDetector {
             
             if (callbackBody) {
               // 型付け情報を探す
-              const typeInfo = NodeExtractorsExtended.extractTypeAnnotations(callbackBody);
+              const typeInfo = NodeExtractorsExtended.extractTypeAnnotation(callbackBody);
               
               if (typeInfo && typeInfo.length > 0) {
                 responseHandling = [{
@@ -241,18 +243,18 @@ export class ServiceMethodDetector extends BasePatternDetector {
     }
     
     // エンドポイント情報の構築
-    const endpointBuilder = context.serviceLocator?.resolve(ServiceIds.ENDPOINT_BUILDER);
+    const endpointBuilder = context.serviceLocator?.resolve<EndpointBuilder>(ServiceIds.ENDPOINT_BUILDER);
     
-    const endpoint = endpointBuilder?.buildEndpoint(
+    const endpoint = endpointBuilder?.buildEndpoint ? endpointBuilder.buildEndpoint(
       urlValue,
       httpMethod,
       location,
       params,
       responseHandling,
       'custom-client'
-    );
+    ) : undefined;
     
-    return [endpoint];
+    return endpoint ? [endpoint] : [];
   }
   
   /**
@@ -369,25 +371,28 @@ export class ServiceMethodDetector extends BasePatternDetector {
         const responseHandling = this.extractResponseHandling(node, location);
         
         // エンドポイント情報の構築
-        const endpointBuilder = context.serviceLocator?.resolve(ServiceIds.ENDPOINT_BUILDER);
+        const endpointBuilder = context.serviceLocator?.resolve<EndpointBuilder>(ServiceIds.ENDPOINT_BUILDER);
         
-        const endpoint = endpointBuilder?.buildEndpoint(
+        const endpoint = endpointBuilder?.buildEndpoint ? endpointBuilder.buildEndpoint(
           urlValue,
           httpCall.method,
           location,
           params,
           responseHandling,
           'custom-client'
-        );
+        ) : undefined;
         
-        endpointInfos.push(endpoint);
+        if (endpoint) {
+          endpointInfos.push(endpoint);
+        }
       }
       
       return endpointInfos;
     }
     
     // HTTP呼び出しが見つからなかった場合は、メソッド名からエンドポイントを推測
-    return this.extractEndpointFromMethodName(node, methodDecl.getName() || '', args, context);
+    const methodName = Node.isMethodDeclaration(methodDecl) || Node.isFunctionDeclaration(methodDecl) ? methodDecl.getName() || '' : '';
+    return this.extractEndpointFromMethodName(node, methodName, args, context);
   }
   
   /**
@@ -409,7 +414,7 @@ export class ServiceMethodDetector extends BasePatternDetector {
             
             if (callbackBody) {
               // 型付け情報を探す
-              const typeInfo = NodeExtractorsExtended.extractTypeAnnotations(callbackBody);
+              const typeInfo = NodeExtractorsExtended.extractTypeAnnotation(callbackBody);
               
               if (typeInfo && typeInfo.length > 0) {
                 return [{
@@ -482,7 +487,7 @@ export class ServiceMethodDetector extends BasePatternDetector {
       }
       
       const urlArg = fetchArgs[0];
-      const urlValue = NodeExtractors.extractStringValue(urlArg);
+      const urlValue = NodeExtractorsExtended.extractStringValue(urlArg);
       
       if (!urlValue) {
         continue;
@@ -492,10 +497,10 @@ export class ServiceMethodDetector extends BasePatternDetector {
       
       if (fetchArgs.length > 1 && fetchArgs[1].isKind(SyntaxKind.ObjectLiteralExpression)) {
         const optionsObj = fetchArgs[1];
-        const methodNode = NodeExtractors.getPropertyFromObjectLiteral(optionsObj, 'method');
+        const methodNode = NodeExtractorsExtended.getPropertyFromObjectLiteral(optionsObj, 'method');
         
         if (methodNode) {
-          const methodText = NodeExtractors.extractStringValue(methodNode);
+          const methodText = NodeExtractorsExtended.extractStringValue(methodNode);
           if (methodText) {
             methodValue = methodText.toUpperCase() as HttpMethod;
           }
@@ -548,7 +553,7 @@ export class ServiceMethodDetector extends BasePatternDetector {
       }
       
       const urlArg = axiosArgs[0];
-      const urlValue = NodeExtractors.extractStringValue(urlArg);
+      const urlValue = NodeExtractorsExtended.extractStringValue(urlArg);
       
       if (!urlValue) {
         continue;
@@ -615,7 +620,7 @@ export class ServiceMethodDetector extends BasePatternDetector {
     // 周囲のコンテキスト（メソッド/クラス名など）を推測
     let contextName = context;
     if (!contextName) {
-      contextName = NodeExtractorsExtended.inferContext(node);
+      contextName = NodeExtractorsExtended.inferNodeContext(node);
     }
     
     return {

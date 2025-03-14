@@ -106,7 +106,7 @@ export class RtkApiMetadataManager {
       
       // インポート元ファイルの解決
       const sourceFilePath = sourceFile.getFilePath();
-      const importedSourcePath = NodeExtractors.resolveModulePath(sourceFilePath, moduleSpecifier);
+      const importedSourcePath = NodeExtractorsExtended.resolveModulePath(sourceFilePath, moduleSpecifier);
       
       if (!importedSourcePath) {
         continue;

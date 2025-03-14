@@ -1,4 +1,4 @@
-import { Node, SyntaxKind } from 'typescript';
+import { Node, SyntaxKind, SourceFile } from 'ts-morph';
 
 /**
  * AST操作における型安全性を提供する高度な型定義モジュール
@@ -13,7 +13,7 @@ import { Node, SyntaxKind } from 'typescript';
  * @returns 型が一致するかどうかのブール値
  */
 export function isNodeOfType<T extends Node>(
-  node: Node | undefined, 
+  node: Node | undefined,
   predicate: (node: Node) => node is T
 ): node is T {
   return node !== undefined && predicate(node);
@@ -24,8 +24,8 @@ export function isNodeOfType<T extends Node>(
  * @param node 検証対象のノード
  * @returns オブジェクトリテラル式かどうかのブール値
  */
-export function isObjectLiteralExpression(node: Node | undefined): node is ts.ObjectLiteralExpression {
-  return node?.kind === SyntaxKind.ObjectLiteralExpression;
+export function isObjectLiteralExpression(node: Node | undefined): boolean {
+  return node?.getKind() === SyntaxKind.ObjectLiteralExpression;
 }
 
 /**
@@ -33,8 +33,8 @@ export function isObjectLiteralExpression(node: Node | undefined): node is ts.Ob
  * @param node 検証対象のノード
  * @returns 関数宣言かどうかのブール値
  */
-export function isFunctionDeclaration(node: Node | undefined): node is ts.FunctionDeclaration {
-  return node?.kind === SyntaxKind.FunctionDeclaration;
+export function isFunctionDeclaration(node: Node | undefined): boolean {
+  return node?.getKind() === SyntaxKind.FunctionDeclaration;
 }
 
 /**
@@ -42,8 +42,8 @@ export function isFunctionDeclaration(node: Node | undefined): node is ts.Functi
  * @param node 検証対象のノード
  * @returns メソッド宣言かどうかのブール値
  */
-export function isMethodDeclaration(node: Node | undefined): node is ts.MethodDeclaration {
-  return node?.kind === SyntaxKind.MethodDeclaration;
+export function isMethodDeclaration(node: Node | undefined): boolean {
+  return node?.getKind() === SyntaxKind.MethodDeclaration;
 }
 
 /**
@@ -52,9 +52,12 @@ export function isMethodDeclaration(node: Node | undefined): node is ts.MethodDe
  * @returns ノードの名称（存在しない場合は空文字）
  */
 export function safeGetNodeName(node: Node | undefined): string {
-  if (isFunctionDeclaration(node) || isMethodDeclaration(node)) {
-    return node.name?.getText() || '(anonymous)';
+  if (!node) return '(unnamed)';
+
+  if (Node.isFunctionDeclaration(node) || Node.isMethodDeclaration(node)) {
+    return node.getName() || '(anonymous)';
   }
+
   return '(unnamed)';
 }
 
@@ -74,11 +77,12 @@ export interface NodeLocation {
  */
 export function getNodeLocation(node: Node): NodeLocation {
   const sourceFile = node.getSourceFile();
-  const { line, character: column } = sourceFile.getLineAndColumnAtPos(node.pos);
-  
+  const pos = node.getStart();
+  const lineAndChar = sourceFile.getLineAndColumnAtPos(pos);
+
   return {
-    line,
-    column,
-    sourceFile: sourceFile.fileName
+    line: lineAndChar.line,
+    column: lineAndChar.column,
+    sourceFile: sourceFile.getFilePath()
   };
 }

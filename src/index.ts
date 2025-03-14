@@ -1,6 +1,6 @@
 /**
  * エンドポイント解析ツール - エントリーポイント
- * 
+ *
  * コマンドライン引数の解析と実行フローの制御を担当します。
  * 解析実行からレポート生成までの全体プロセスを統括します。
  */
@@ -12,15 +12,12 @@ import { ServiceLocator, ServiceIds } from './core/ServiceLocator';
 import { logger, LogLevel } from './utils/Logger';
 import { AnalysisConfiguration, AnalysisResult } from './types';
 import { JsonReporter } from './reporters/JsonReporter';
-import { MarkdownReporter } from './reporters/MarkdownReporter';
+import { MarkdownReporter } from './reporters/markdown';
 import { ensureDirectoryExists, writeJsonFile } from './utils/fs-helper';
 import { EndpointBuilder } from './detectors/common/EndpointBuilder';
-import { RtkQueryUrlParser } from './detectors/rtk-query/parsers/UrlParser';
-import { RtkQueryTypeHelper } from './detectors/rtk-query/parsers/TypeHelper';
 import { AxiosDetectionStrategy } from './detectors/http/AxiosDetectionStrategy';
 import { FetchDetectionStrategy } from './detectors/http/FetchDetectionStrategy';
 import { CustomApiClientStrategy } from './detectors/http/CustomApiClientStrategy';
-import { RtkQueryDetectionStrategy } from './detectors/rtk-query/RtkQueryDetector';
 import { DefaultDetectionStrategy } from './detectors/DefaultDetectionStrategy';
 
 /**
@@ -47,15 +44,10 @@ function initializeServices(): ServiceLocator {
   // 共通ユーティリティ登録
   serviceLocator.register(ServiceIds.ENDPOINT_BUILDER, new EndpointBuilder('', 'GET', 'default'));
 
-  // RTK Query用ユーティリティ登録
-  serviceLocator.register(ServiceIds.URL_PARSER, new RtkQueryUrlParser());
-  serviceLocator.register(ServiceIds.TYPE_HELPER, new RtkQueryTypeHelper());
-
   // 検出戦略の登録
   serviceLocator.register(ServiceIds.AXIOS_STRATEGY, new AxiosDetectionStrategy());
   serviceLocator.register(ServiceIds.FETCH_STRATEGY, new FetchDetectionStrategy());
   serviceLocator.register(ServiceIds.CUSTOM_API_CLIENT_STRATEGY, new CustomApiClientStrategy());
-  serviceLocator.register(ServiceIds.RTK_QUERY_STRATEGY, new RtkQueryDetectionStrategy());
   serviceLocator.register(ServiceIds.DEFAULT_STRATEGY, new DefaultDetectionStrategy());
 
   return serviceLocator;
@@ -183,7 +175,7 @@ async function main(): Promise<void> {
 
     // 解析設定の作成
     const configuration = createAnalysisConfiguration(options);
-    logger.debug('解析設定:', configuration);
+    logger.debug(JSON.stringify(configuration, null, 2));
 
     // サービスの初期化
     const serviceLocator = initializeServices();

@@ -12,6 +12,28 @@ import { logger } from '../Logger';
  */
 export class UrlNormalizer {
   /**
+   * URLらしい形式かどうか判定
+   * @param path 判定対象のパス
+   * @returns URLらしい形式の場合true
+   */
+  public static looksLikeUrl(path: string): boolean {
+    if (!path) return false;
+    
+    // /から始まるパス
+    if (path.startsWith('/')) return true;
+    
+    // http://やhttps://から始まる完全なURL
+    if (path.startsWith('http://') || path.startsWith('https://')) return true;
+    
+    // /api/や/v1/などのAPIパスを含む
+    if (path.includes('/api/') || 
+        path.match(/\/v\d+\//i) ||
+        path.includes('/rest/')) return true;
+    
+    return false;
+  }
+
+  /**
    * URLパスを正規化する
    * @param path 正規化対象のURLパス
    * @returns 正規化されたURLパス
