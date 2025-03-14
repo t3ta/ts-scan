@@ -1,89 +1,157 @@
 # RTK Query型システムとの高度な統合戦略
 
-## 型統合のアーキテクチャル・アプローチ
+## 型システム統合アーキテクチャ
 
-### 型システム統合の基本方針
+### 設計原則
 
 1. **完全な型的同型性の実現**
-   - RTK Queryの型定義を忠実に反映
-   - ジェネリクスによる高度な型推論の実装
+   - RTK Queryの型定義との厳密な対応関係の確立
+   - TypeScriptコンパイラAPIと型システムの深層活用
 
-2. **型レベルでの抽象化**
-   - エンドポイント型の完全な型安全性確保
-   - コンパイル時の静的型検証メカニズム
+2. **階層型探索アルゴリズム**
+   - 型階層を深さ優先探索で解析
+   - インターフェース継承関係の追跡と型シグネチャの照合
 
-### 具体的な型統合戦略
+3. **高度な型推論メカニズム**
+   - ジェネリクスパラメータの位置ベース抽出
+   - 条件付き型と交差型の解析
+
+## 実装アーキテクチャ
+
+本実装は以下の主要コンポーネントから構成されています：
+
+```
+src/detectors/rtk-query/
+├── parsers/
+│   ├── RtkQueryTypeDefinitions.ts  # 型定義と型検出用の定数
+│   ├── RtkQueryTypeDetector.ts     # エンドポイント種別の型レベル検出
+│   └── RtkQueryEndpointTypeInference.ts # 型情報推論エンジン
+├── patterns/
+│   └── EnhancedEndpointDefinitionDetector.ts # 型情報活用検出器
+└── RTKQueryDetectionStrategy.ts    # 型検出統合戦略
+```
+
+### 型検出メカニズム
 
 ```typescript
-// 高度に抽象化された型統合インターフェース
-interface IRTKQueryTypeIntegration<
-  TBaseQuery extends BaseQueryFn,
-  TDefinitions extends EndpointDefinitions
-> {
-  // エンドポイント型の完全な抽象化
-  extractEndpointTypes(
-    endpoint: keyof TDefinitions
-  ): {
-    queryType: 'query' | 'mutation';
-    inputType: unknown;
-    outputType: unknown;
-  };
-
-  // 型レベルでのエンドポイント検証
-  validateEndpointType(
-    endpoint: keyof TDefinitions
-  ): boolean;
-
-  // 型推論のためのユーティリティ
-  inferEndpointGenerics(
-    endpoint: keyof TDefinitions
-  ): {
-    requestType: unknown;
-    responseType: unknown;
-    metadataType: unknown;
-  };
+/**
+ * エンドポイント種別の判定フロー
+ */
+function detectEndpointType(node: Node): EndpointType | undefined {
+  // 1. メソッド名による簡易判定（フォールバック）
+  if (isPropertyAccessExpression(node)) {
+    const methodName = node.getName();
+    if (methodName === 'query') return EndpointType.Query;
+    if (methodName === 'mutation') return EndpointType.Mutation;
+    // ...
+  }
+  
+  // 2. 型シグネチャによる判定
+  const typeInfo = node.getType();
+  const typeText = typeInfo.getText();
+  
+  // 型名パターンマッチング
+  if (containsQueryTypePattern(typeText)) return EndpointType.Query;
+  if (containsMutationTypePattern(typeText)) return EndpointType.Mutation;
+  // ...
+  
+  // 3. インターフェース階層探索
+  const interfaces = getBaseInterfaces(typeInfo);
+  for (const iface of interfaces) {
+    const ifaceName = iface.getName();
+    // インターフェース名によるパターンマッチング
+    // ...
+  }
+  
+  // 4. シンボル情報による判定
+  // ...
 }
 ```
 
-### 型統合の実装アプローチ
+### ジェネリクスパラメータ抽出
 
-#### 1. 型推論のメカニズム
-- ジェネリクスを活用した柔軟な型定義
-- コンパイル時の静的型検証
-- エンドポイント定義の完全な型的追跡
+```typescript
+/**
+ * ジェネリクスパラメータ抽出フロー
+ */
+function extractGenericParameters(
+  node: Node, 
+  endpointType: EndpointType
+): Map<string, string> | undefined {
+  // CallExpressionからタイプ引数を取得
+  if (isCallExpression(node)) {
+    const typeArguments = node.getTypeArguments();
+    
+    // エンドポイントタイプ別の抽出ロジック
+    switch (endpointType) {
+      case EndpointType.Query:
+        // ResultType, QueryArg, BaseQuery, TagTypes
+        return extractQueryGenericParameters(typeArguments);
+      
+      case EndpointType.Mutation:
+        // ResultType, QueryArg, BaseQuery, TagTypes
+        return extractMutationGenericParameters(typeArguments);
+      
+      case EndpointType.InfiniteQuery:
+        // ResultType, QueryArg, PageParam, BaseQuery, TagTypes
+        return extractInfiniteQueryGenericParameters(typeArguments);
+    }
+  }
+  
+  return undefined;
+}
+```
 
-#### 2. 型安全性の確保
-- 型レベルでのエンドポイント種別判定
-- 厳密な型制約の実装
-- ランタイム型チェックの排除
+## 型検出アルゴリズムの詳細
 
-#### 3. 高度な型推論テクニック
-- 条件型（Conditional Types）の活用
-- マッピング型（Mapped Types）による動的型変換
-- インデックス型（Index Types）による型抽出
+1. **初期検出フェーズ**
+   - メソッド名による基本的な判断
+   - AST構造に基づく検出
 
-## 技術的制約と最適化
+2. **型シグネチャ解析フェーズ**
+   - 型のテキスト表現からのパターン検出
+   - 型名に含まれる識別子を用いた判定
 
-### パフォーマンス考慮
-- 型レベル計算のオーバーヘッド最小化
-- メモ化戦略による型推論の効率化
-- 静的解析との協調的最適化
+3. **インターフェース階層探索フェーズ**
+   - 基底インターフェースの再帰的探索
+   - 型の継承関係の追跡
 
-### 拡張性の確保
-- プラグイン可能な型統合アーキテクチャ
-- 将来的なRTK Queryバージョンへの対応
-- モジュラーな設計による柔軟性確保
+4. **シンボル情報活用フェーズ**
+   - 型シンボルの名前と構造を活用
+   - 型宣言元の情報を分析
 
-## 型統合における技術的チャレンジ
+## RTK Query型定義との対応関係
 
-1. **複雑な型推論シナリオ**
-   - 動的エンドポイント定義への対応
-   - ジェネリクスの入れ子型推論
+| RTK Query型 | 内部表現 | 検出パターン |
+|------------|---------|------------|
+| QueryDefinition | EndpointType.Query | "QueryDefinition", "build.query", ... |
+| MutationDefinition | EndpointType.Mutation | "MutationDefinition", "build.mutation", ... |
+| InfiniteQueryDefinition | EndpointType.InfiniteQuery | "InfiniteQueryDefinition", "build.infiniteQuery", ... |
 
-2. **型的等価性の保証**
-   - RTK Queryの型定義との完全な整合性
-   - 型レベルでの等価性検証メカニズム
+## 高度な型判定技術
 
-3. **エッジケース処理**
-   - 部分適用された型の正確な推論
-   - 複雑な条件型シナリオへの対応
+1. **型情報キャッシュ**
+   - 既知の型情報をキャッシュして再利用
+   - 型計算の冗長性排除
+
+2. **段階的フォールバック**
+   - 精密な型情報を優先的に使用
+   - 型情報が不十分な場合に段階的に簡易判定にフォールバック
+
+3. **型パラメータの位置ベース解析**
+   - RTK Queryの型パラメータが特定の位置に配置される特性を活用
+   - 位置インデックスを用いた効率的な型情報抽出
+
+## パフォーマンス最適化戦略
+
+1. **早期終了パターン**
+   - 明確な判定が得られた時点で探索を終了
+   - 不要な型階層探索の回避
+
+2. **適応的探索深度制限**
+   - 型階層探索の深さに制限を設定
+   - 深い型階層による無限再帰の防止
+
+3. **型解析結果のメモ化**
+   - 同一ノードの型解析結果を記憶
+   - 重複計算の削減

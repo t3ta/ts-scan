@@ -1,7 +1,7 @@
 {
-  "name": "endpoint-analyzer",
-  "version": "2.0.0",
-  "description": "APIエンドポイント解析ツール - リファクタリング版",
+  "name": "ts-scan",
+  "version": "0.0.1",
+  "description": "A tool to analyze TypeScript code",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -21,8 +21,8 @@
     "typescript",
     "static-analysis"
   ],
-  "author": "Umitron Engineering Team",
-  "license": "UNLICENSED",
+  "author": "Takahito Mita",
+  "license": "MIT",
   "private": true,
   "dependencies": {
     "@reduxjs/toolkit": "^2.6.1",
