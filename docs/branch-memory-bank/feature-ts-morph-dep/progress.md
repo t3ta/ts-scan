@@ -52,18 +52,33 @@
     - `ApiClientMethodCallDetector`
     - `HttpPatternDetector`
     - `ServiceMethodDetector`
+- AST操作ユーティリティクラスの修正
+  - `NodeTraversal.ts` がINodeインターフェイスに対応
+  - `NodePredicates.ts` がINodeインターフェイスに対応
 
 ## 作業中の部分
 
-- コンパイルエラーの対応継続
-  - NodeExtractors関連ユーティリティの完全互換対応
-  - 型互換性エラーの一部解消
+- AST操作ユーティリティクラスの修正
+  - `NodeExtractors.ts` をINodeインターフェイスに完全対応させる作業進行中
+  - `NodeExtractorsExtended.ts` をINodeインターフェイスに完全対応させる作業進行中
+  - タイプチェッカー関連の型エラーを解消中
 
 ## 未実装の機能や残作業
 
 ## 高優先度
 
-- [x] 一部テストの修正と実行
+- [ ] AST操作ユーティリティの完全互換対応
+  - [x] NodeTraversalのINode対応
+  - [x] NodePredicatesのINode対応
+  - [ ] NodeExtractorsの完全互換対応（タイプエラー解消）
+  - [ ] NodeExtractorsExtendedの完全互換対応（タイプエラー解消）
+
+- [ ] 型互換性の問題解決
+  - [ ] Node/INode混在の解消
+  - [ ] TypeCheckerなどts-morph固有の型の扱い
+  - [ ] 条件付きメソッドの安全な呼び出し（オプショナルチェイニングを活用）
+
+- [ ] 一部テストの修正と実行
   - [x] MockNodeのfindDescendants機能の修正
   - [x] IFunctionインターフェースの実装追加
   - [x] NodeKind列挙体とスナップショットの整合
@@ -77,25 +92,6 @@
     - [x] NodeExtractorsExtendedのインターフェース対応
     - [x] NodePredicatesのインターフェース対応
   - [ ] 残りのテストファイル修正
-
-- [x] 検出器モジュールのリファクタリング
-  - [x] `AxiosDetectionStrategy` の改修
-  - [x] `NodePredicates.isMethodCall` 問題を解決
-  - [x] `FetchDetectionStrategy` の改修（ts-morphの直接依存を抽象インターフェースに変更）
-  - [x] `RTKQueryDetectionStrategy` の改修（ts-morphの直接依存を抽象インターフェースに変更）
-  - [x] `CustomApiClientStrategy` の改修（ts-morphの直接依存を抽象インターフェースに変更）
-  - [x] パターン検出器のインターフェース調整（Node -> INode）
-    - [x] `CreateApiCallDetector` の修正
-    - [x] `EndpointDefinitionDetector` の修正
-    - [x] `EnhancedEndpointDefinitionDetector` の修正
-    - [x] `ApiInstanceUsageDetector` の修正
-    - [x] `ApiClientMethodCallDetector` の修正
-    - [x] `HttpPatternDetector` の修正
-    - [x] `ServiceMethodDetector` の修正
-  - [ ] 残りのコンパイルエラー対応
-    - [ ] NodeExtractors の完全互換対応
-    - [ ] NodeExtractorsExtended の完全互換対応
-    - [ ] NodeTraversal の完全互換対応
 
 ### 中優先度
 
@@ -118,15 +114,17 @@
 
 ## 現在のステータス
 
-- 実装フェーズ: 検出器モジュールリファクタリングの進行中
-  - 主要な検出戦略クラスのts-morph直接依存を抽象インターフェース依存に置き換え完了
-  - パターン検出器クラスのINode対応も完了
-  - AST操作ユーティリティクラスの修正が必要
-  - コンパイルエラーの数はさらに減少（約120から約100へ）
+- 実装フェーズ: AST操作ユーティリティクラスの修正進行中
+  - NodeTraversalをINodeインターフェースに対応完了
+  - NodePredicatesをINodeインターフェースに対応完了
+  - INodeインターフェースを拡張して必要なメソッドを追加
+  - NodeExtractors/NodeExtractorsExtendedの修正作業中
+  - 型互換性の問題に対処中
 
-- 次のフェーズ: ユーティリティクラスのINode対応
-  - NodeExtractors、NodeExtractorsExtended、NodeTraversalの完全互換対応
-  - 残りのコンパイルエラー解消
+- 次のフェーズ: 残りのコンパイルエラー解決
+  - 型の互換性問題の解決
+  - ts-morph固有の型（TypeCheckerなど）の扱いの適正化
+  - テスト環境の安定化
 
 ## 環境依存の課題
 
@@ -141,11 +139,12 @@
 
 ## 今後の展開
 
-1. ユーティリティクラスの完全互換対応と残りのコンパイルエラー解消
-2. テスト実行環境の改善と全テストの検証
-3. スキップテストの有効化と検証
-4. 統合テストの実行とCI/CD環境での安定性確認
-5. ドキュメントの整備と知見の共有
+1. AST操作ユーティリティクラスの完全修正
+2. 残りのコンパイルエラーの解消
+3. テスト実行環境の改善と全テストの検証
+4. スキップテストの有効化と検証
+5. 統合テストの実行とCI/CD環境での安定性確認
+6. ドキュメントの整備と知見の共有
 
 ## 技術的リスクと緩和策
 
@@ -157,3 +156,7 @@
 
 3. **バージョン互換性問題**
    - 緩和策: ts-morphバージョン間の差異をアダプターで吸収する設計
+
+4. **型互換性の問題**
+   - 緩和策: 適切な型ガードとオプショナルチェイニングを使用
+   - 緩和策: 部分的なany型の使用で型システムのエラーを回避

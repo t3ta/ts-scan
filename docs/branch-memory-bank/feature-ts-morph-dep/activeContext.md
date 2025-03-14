@@ -1,8 +1,10 @@
 # アクティブコンテキスト for feature/ts-morph-dep
 
-## AST抽象化アーキテクチャの実装と課題
+## AST抽象化レイヤーの実装と型互換性の課題
 
-feature/ts-morph-dep ブランチにおいて、ts-morphへの直接依存を抽象化レイヤーで分離するための設計・実装が進行中である。本アプローチは、ヘキサゴナルアーキテクチャ（ポート・アンド・アダプターパターン）の考え方に基づき、以下の階層構造を実装している：
+feature/ts-morph-dep ブランチにおける作業は、ヘキサゴナルアーキテクチャ（ポート・アンド・アダプターパターン）の考え方に基づく抽象化レイヤーの実装が一定程度進行しているのだ。しかし、依然として型互換性の問題が残っており、特にAST操作ユーティリティクラスの修正が必要なのだ。
+
+現在の作業は以下の階層構造を持つアーキテクチャの完成に向けて進行中なのだ：
 
 1. **ドメインレイヤー**（インターフェース層）
    - IASTProvider, ISourceFile, INode等の抽象インターフェース
@@ -21,120 +23,87 @@ feature/ts-morph-dep ブランチにおいて、ts-morphへの直接依存を抽
 
 ## 現在の実装状況
 
-現在、以下の実装が完了している：
+以下の主要コンポーネントの実装が完了しているのだ：
 
-- インターフェース層の定義
+- インターフェース層の定義と基本実装
 - ts-morphアダプター群の基本実装
-- モックプロバイダーの実装
-- スナップショット機構の基本実装
+- モックプロバイダーとスナップショット機構
 - ServiceLocator拡張とファクトリークラスの実装
 - AnalyzerEngineクラスのリファクタリング
-- ServiceLocatorテストの修正と成功確認
-- StrategyRegistryテストの修正と成功確認
-- PatternDetectorのインターフェース修正
+- ServiceLocatorとStrategyRegistryのテスト修正
 - 検出戦略クラスのISourceFile・INode対応
-  - AxiosDetectionStrategy.ts の修正完了
-  - FetchDetectionStrategy.ts の修正完了
-  - RTKQueryDetectionStrategy.ts の修正完了
-  - CustomApiClientStrategy.ts の修正完了
-- 検出パターンクラスのINode対応完了
-  - CreateApiCallDetector の修正完了
-  - EndpointDefinitionDetector の修正完了
-  - EnhancedEndpointDefinitionDetector の修正完了
-  - ApiInstanceUsageDetector の修正完了
-  - ApiClientMethodCallDetector の修正完了
-  - HttpPatternDetector の修正完了
-  - ServiceMethodDetector の修正完了
+- パターン検出器クラスのINode対応
+- AST操作ユーティリティの一部修正（NodeTraversal, NodePredicates）
 
-テスト実行を開始したところ、以下の課題が発見されている：
+## 現在取り組んでいる課題
 
-1. **型の互換性問題**
-   - SourceFileとISourceFileの混在
-   - NodeとINodeの参照不整合
-   - ts-morphの型とインターフェース層の型の変換処理
-   - NodeExtractorsExtendedの一部メソッドがINodeに完全実装されていない問題
+現在、以下の課題に取り組んでいるのだ：
 
-2. **ユーティリティクラスの適応**
-   - NodeExtractors の完全互換対応
-   - NodeExtractorsExtended の完全互換対応
-   - NodeTraversal の完全互換対応
+1. **AST操作ユーティリティクラスの修正**
+   - NodeExtractors, NodeExtractorsExtendedクラスをINodeインターフェースに完全対応
+   - 型の互換性問題を解決（Node型とINode型の混在）
+   - ts-morph固有の型（TypeCheckerなど）の扱いを適正化
 
-3. **ts-morphバージョン依存の問題**
-   - 一部メソッド（isDotDotDot()等）の有無による互換性問題
-   - SyntaxKindとNodeKindの比較方法の違い
-   - コンパイルエラーの解消
+2. **型システムの問題**
+   - Node型とINode型が混在するコードでの型エラー
+   - オプショナルチェイニングとnullチェックによる安全なメソッド呼び出し
+   - 条件付きの型ガードを活用した実行時型チェック
 
-4. **テスト環境の課題**
-   - ServiceLocatorのコンストラクタアクセス問題
-   - スナップショットを用いたモックテストの実行方法
-
-## 直近の変更点
-
-- 全インターフェース層の実装完了
-- アダプター層実装の基本部分完成
-- モックプロバイダー、スナップショット機構の実装
-- MockNodeのfindDescendants機能の大幅改良（自己参照問題の解決）
-- NodeKind列挙体の値をスナップショットと整合させる修正
-- IFunctionインターフェース実装のMockNodeへの追加
-- ServiceLocatorとASTProviderFactoryのテスト成功
-- インターフェース拡張と実装
-  - INodeDiagnosticsインターフェースの追加とINodeへの継承
-  - MockNodeへのgetExpression、getArgumentsメソッドの実装追加
-  - NodeExtractorsExtendedとNodePredicatesをINode対応に修正
-- 検出戦略クラスのISourceFile・INode対応
-  - `AxiosDetectionStrategy.ts` からts-morphの直接参照を排除し、抽象インターフェースで置き換え完了
-  - `FetchDetectionStrategy.ts` からts-morphの直接参照を排除し、抽象インターフェースで置き換え完了
-  - `RTKQueryDetectionStrategy.ts` からts-morphの直接参照を排除し、抽象インターフェースで置き換え完了
-  - `CustomApiClientStrategy.ts` からts-morphの直接参照を排除し、抽象インターフェースで置き換え完了
-- 検出パターンクラスのINode対応完了
-  - `CreateApiCallDetector` の修正完了
-  - `EndpointDefinitionDetector` の修正完了
-  - `EnhancedEndpointDefinitionDetector` の修正完了
-  - `ApiInstanceUsageDetector` の修正完了
-  - `ApiClientMethodCallDetector` の修正完了
-  - `HttpPatternDetector` の修正完了
-  - `ServiceMethodDetector` の修正完了
+3. **インターフェース拡張**
+   - INode.tsインターフェースを拡張してgetName(), getExpression(), getArguments()などの必要なメソッドを追加
+   - NodeKind列挙型にArrowFunctionなどの必要な値を追加
+   - オプショナルメソッドの適切な型定義
 
 ## 今アクティブな決定事項
 
-1. **インターフェース設計**
-   - シンプルかつ柔軟性の高いインターフェース定義を維持
-   - 必要最小限のメソッドでDomain/InfrastructureのDecoupling実現
+1. **型の互換性問題への対応戦略**
+   - ユーティリティ関数内で 'isKind' in node などの型ガードを使用して区別
+   - TypeCheckerなどのts-morph固有型は一時的にany型として扱う
+   - オプショナルチェイニング演算子を活用して安全にメソッドにアクセス
 
-2. **アダプターパターン実装**
-   - ts-morphの挙動をインターフェースに適合させる変換処理を集約
-   - バージョン差異を吸収する実装の導入
+2. **インターフェース設計**
+   - 必要最小限のメソッドでインターフェースを定義
+   - オプショナルメソッドを活用（INodeDiagnostics）
+   - 複数のインターフェースを組み合わせて柔軟性を確保
 
-3. **モックとスナップショット戦略**
-   - 実際のASTをシリアライズ可能な形式でスナップショット保存
-   - テスト時にスナップショットからモック再構築
-
-4. **依存性注入アプローチ**
-   - ServiceLocatorへのASTProvider登録機能追加
-   - 環境検出によるプロバイダー自動選択
+3. **実装アプローチ**
+   - 既存のNodeExtractorsとNodeExtractorsExtendedを修正（分岐ロジックの導入）
+   - INodeインターフェースの拡張を進める
+   - 最終的には分岐を減らしてクリーンなコードに再構成
 
 ## 今アクティブな課題
 
-1. **ユーティリティクラスのINode対応**
-   - NodeExtractors の完全互換対応
-   - NodeExtractorsExtended の完全互換対応
-   - NodeTraversal の完全互換対応
+1. **型エラーの原因**
+   - Node型とINode型の混在による型の互換性問題
+   - インターフェースで定義されていないメソッドへのアクセス
+   - TypeCheckerなどのts-morph固有の型の扱い
+   - オプショナルメソッドの安全な呼び出し方法
 
-2. **残りのコンパイルエラー対応**
-   - 型互換性の問題解決
-   - インターフェース実装の完全対応
+2. **コンパイルエラーのパターン**
+   - `Type 'INode' is missing the following properties from type 'Node<Node>'`
+   - `Property 'X' does not exist on type 'Node<Node> | INode'`
+   - `Argument of type 'NodeKind.X' is not assignable to parameter of type 'never'`
 
-3. **テストスキップを解消するための調整**
+3. **解決が難しい問題**
+   - ts-morphのAPIと抽象インターフェースの完全な互換性の確保
+   - バージョン依存による挙動の差異への対応
+   - テスト環境でのモックの振る舞いの正確な再現
 
 ## 次のステップ
 
-1. **ユーティリティクラスの完全対応**
-   - NodeExtractors、NodeExtractorsExtended、NodeTraversalの修正
-   
-2. **テストの修正と実行**
-   - テストファイルの修正
-   - スキップ解除の試行
+1. **ユーティリティクラスの完全修正**
+   - NodeExtractors.tsの残りのエラーを解消
+   - NodeExtractorsExtended.tsの残りのエラーを解消
+   - 追加で必要なインターフェース拡張があれば実施
 
-3. **テストの安定化とカバレッジ向上**
-   - 全テストの実行確認
-   - テスト環境の安定化
+2. **コンパイルエラーの完全解消**
+   - 型の互換性問題の解決方針を決定（型ガード、any型の部分的使用など）
+   - エラーパターンごとの解決策の適用
+   - コンパイルが通るまで段階的に修正
+
+3. **テストの修正と検証**
+   - テスト環境でも動作するようにテストコードを修正
+   - スキップしているテストの有効化
+   - エッジケースの検証
+
+実装の詳細部分で課題が残っているが、アーキテクチャ設計の方向性は確立されており、抽象化レイヤーの基本機能は実装済みなのだ。型の互換性問題を解決することで、安定したテスト環境を構築し、将来的なts-morphの依存度を低減できるのだ。

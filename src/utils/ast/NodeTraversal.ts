@@ -120,11 +120,11 @@ export class NodeTraversal {
       return false;
     }
 
-    const expression = node.getExpression();
-    if (!expression.isKind(NodeKind.PropertyAccessExpression)) {
+    const expression = node.getExpression?.();
+    if (!expression || !expression.isKind(NodeKind.PropertyAccessExpression)) {
       return false;
     }
 
-    return expression.getName() === methodName;
+    return expression.getName?.() === methodName;
   }
 }

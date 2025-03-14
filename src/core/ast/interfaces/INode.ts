@@ -6,7 +6,7 @@
  */
 
 /**
- * ノードの子観察メソッド
+ * ノードの診断メソッド（共通部分）
  */
 export interface INodeDiagnostics {
   /**
@@ -20,6 +20,12 @@ export interface INodeDiagnostics {
    * @returns ノードが関数呼び出しの場合、引数配列を返す
    */
   getArguments?(): INode[];
+  
+  /**
+   * 名前を取得する
+   * @returns ノードの名前（識別子など）
+   */
+  getName?(): string | undefined;
 }
 
 /**
@@ -47,6 +53,7 @@ export enum NodeKind {
   StringLiteral,
   NumericLiteral,
   Identifier = 9,
+  ArrowFunction = 30,
   
   // 文
   ExpressionStatement,
@@ -133,4 +140,22 @@ export interface INode extends INodeDiagnostics {
    * @returns ノードが含まれるソースファイル
    */
   getSourceFile(): any;
+  
+  /**
+   * 引数リストを取得する (CallExpression用)
+   * @returns 引数ノードの配列
+   */
+  getArguments?(): INode[];
+  
+  /**
+   * 名前を取得する (Identifier, MethodDeclaration, FunctionDeclaration など用)
+   * @returns ノードの名前
+   */
+  getName?(): string;
+  
+  /**
+   * 式を取得する (PropertyAccessExpression, CallExpression など用)
+   * @returns 式ノード
+   */
+  getExpression?(): INode;
 }
