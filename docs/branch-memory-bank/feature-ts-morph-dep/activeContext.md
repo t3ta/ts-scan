@@ -1,105 +1,107 @@
 # アクティブコンテキスト for feature/ts-morph-dep
 
-## AST抽象化レイヤーの実装と型互換性の課題解決
+## 型互換性と抽象化レイヤーの実装進捗
 
-feature/ts-morph-dep ブランチにおける作業は、ヘキサゴナルアーキテクチャ（ポート・アンド・アダプターパターン）の考え方に基づく抽象化レイヤーの実装が進行しており、主要なエラーの修正が完了したのだ。特に、`NodeExtractors.ts` と `Logger.ts` の問題を解決したのだ。
+feature/ts-morph-dep ブランチにおける作業は、ポート・アンド・アダプターパターンの考え方に基づく抽象化レイヤーの実装が大きく進展し、型互換性の問題も解決に向かっているのだ。複数のファイルで型ガードを導入し、型エラーを解消したのだ。
 
-現在の作業は以下の階層構造を持つアーキテクチャの完成に向けて進行中なのだ：
+現在の作業における主な成果は以下の通りなのだ：
 
-1. **ドメインレイヤー**（インターフェース層）
-   - IASTProvider, ISourceFile, INode等の抽象インターフェース
-   - ドメインロジックと外部技術との境界を明確に定義
-   - テスト容易性と実装の入れ替え可能性を確保
+1. **型互換性の問題解決**
+   - `isINode` と `isTsMorphNode` 型ガード関数を各ファイルに導入
+   - オプショナルチェイニングと安全なメソッド呼び出しパターンの確立
+   - `(node as any).isKind(NodeKind.CallExpression)` のような型キャストの適用
 
-2. **インフラストラクチャレイヤー**（アダプター層）
-   - TsMorphAdapter等のts-morph実装アダプター
-   - MockProvider等のテスト用モック実装
-   - 異なる実行環境（本番/テスト）に対応する実装の提供
+2. **SyntaxKind名前空間の導入**
+   - `NodeKind` と `SyntaxKind` の互換性を保つための名前空間実装
+   ```typescript
+   export namespace SyntaxKind {
+     export const PropertyAccessExpression = NodeKind.PropertyAccessExpression;
+     export const CallExpression = NodeKind.CallExpression;
+     // 他の必要な定数...
+   }
+   ```
 
-3. **アプリケーションレイヤー**（ファクトリー・DI）
-   - ASTProviderFactory - 環境検出と適切な実装の選択
-   - ServiceLocator拡張 - アプリケーション全体でのインスタンス管理
-   - スナップショット機構 - テスト環境でのAST構造の再現
+3. **オプショナルプロパティの問題解決**
+   - ヌリッシュコアレッシング演算子 (`??`) を使用したデフォルト値の提供
+   ```typescript
+   lineNumber: location.lineNumber ?? 1,
+   columnNumber: location.columnNumber ?? 1,
+   ```
 
-## 現在の実装状況
-
-以下の主要コンポーネントの実装が完了しているのだ：
-
-- インターフェース層の定義と基本実装
-- ts-morphアダプター群の基本実装
-- モックプロバイダーとスナップショット機構
-- ServiceLocator拡張とファクトリークラスの実装
-- AnalyzerEngineクラスのリファクタリング
-- ServiceLocatorとStrategyRegistryのテスト修正
-- 検出戦略クラスのISourceFile・INode対応
-- パターン検出器クラスのINode対応
-- AST操作ユーティリティの一部修正（NodeTraversal, NodePredicates, NodeExtractorsExtended）
+4. **ファイル修正の進捗**
+   - `NodeTraversal.ts` と `NodePredicates.ts` の修正完了
+   - `FetchDetectionStrategy.ts` の修正完了
+   - `ServiceMethodDetector.ts`, `HttpPatternDetector.ts`, `ApiClientMethodCallDetector.ts` の修正完了
+   - `AxiosDetectionStrategy.ts` の修正完了
+   - `ISourceFile` が `INode` を継承するよう修正
 
 ## 現在取り組んでいる課題
 
 現在、以下の課題に取り組んでいるのだ：
 
-1. **コンパイルエラーの解消**
-   - 主要なエラーを解決（NodeExtractors.ts、Logger.ts）
-   - 残りの型エラーを分析して解決する
-   - NodeExtractorsExtended.ts のエラーを修正する
+1. **残りのファイルのエラー解消**
+   - `MockNode.ts` に残るエラーの解消
+   - `PatternDetector.ts` のエラー解消
+   - `TsMorphAdapter.ts` と `TsMorphSourceFileAdapter.ts` の修正
 
-2. **型ガードと型互換性の改善**
-   - 導入したisINode型ガード関数とisTsMorphNode型ガード関数の活用
-   - 型ガードを使った条件分岐の応用
-   - オプショナルチェイニングによる安全なアクセス
+2. **抽象化レイヤーの完成**
+   - インターフェースの完全実装
+   - アダプターパターンの一貫した適用
 
-3. **インターフェース拡張の適用**
-   - NodeKind列挙型にMethodDeclarationを追加済み
-   - テスト環境で必要なインターフェースの完全対応
+3. **テストの復活**
+   - 修正したコードに対するテストの有効化
+   - スキップテストの解除
 
 ## 今アクティブな決定事項
 
-1. **型の互換性問題への対応成功**
-   - isINodeとisTsMorphNode型ガード関数を導入し実行時の型を判別
-   - 型ガード関数による安全な型分岐を実装
-   - ts-morph APIとINodeインターフェースの区別が明確に
+1. **型ガードパターンの標準化**
+   - 以下のパターンを標準として採用
+   ```typescript
+   if ('isKind' in node && typeof node.isKind === 'function') {
+     // INodeとして安全に扱える
+   }
+   ```
 
-2. **インターフェース拡張の進展**
-   - `NodeKind` 列挙型に `MethodDeclaration` を追加
-   - INodeインターフェース拡張の有効性確認
-   - インターフェース分割による拡張性の改善
+2. **安全なメソッド呼び出し手法**
+   - オプショナルチェイニングと存在確認を組み合わせたアプローチ
+   ```typescript
+   const hasGetExpression = 'getExpression' in node && typeof node.getExpression === 'function';
+   if (hasGetExpression) {
+     const expr = (node as any).getExpression();
+     // 安全に操作
+   }
+   ```
 
-3. **実装アプローチの成功体験**
-   - 型ガードと型判別ロジックでNodeExtractors.tsの型エラーを解決
-   - 同様のアプローチで他のファイルも修正可能
-   - テスト可能な設計の価値確認
+3. **NodeKind/SyntaxKind互換性の確保**
+   - 名前空間による解決方法を採用
+   - 直接的な型変換の代わりに定数マッピングを使用
 
 ## 今アクティブな課題
 
-1. **残りのエラーの解決**
-   - NodeExtractorsExtended.ts の型エラー（35個）
-   - ディテクター関連ファイルのエラー
-   - 型の互換性問題の共通パターンに注目
+1. **ts-morph固有の型の扱い**
+   - TypeCheckerなどの特殊な型の扱いの検討
+   - 完全な抽象化が難しい部分の対処方法
 
-2. **型ガードアプローチのリファクタリング**
-   - 型ガード関数を共通ユーティリティとして整理
-   - 使用パターンを標準化
-   - 必要最小限の型判定ロジックを維持
+2. **大量のキャスト処理の改善**
+   - 現状では多数の `as any` キャストが必要
+   - より型安全な方法の検討
 
-3. **テスト時の振る舞い**
-   - モック実装と型情報の整合性確認
-   - スデップでエラーを解消しテストカバレッジを向上
+3. **テスト環境の安定化**
+   - モック実装の完成
+   - スナップショットベースのテスト手法の確立
 
 ## 次のステップ
 
-1. **NodeExtractorsExtended.ts の修正**
-   - 型ガードアプローチをこのファイルにも適用
-   - 共通の型エラーパターンを解決
+1. **残りのエラー解消**
+   - コンパイルエラーの順次解消
+   - 標準化したパターンの適用
 
-2. **他の依存ファイルの修正**
-   - ディテクター関連ファイルの型エラーを解決
-   - AST操作ユーティリティの型情報を整備
-   - 共通のアプローチを検討
+2. **コードベースの検証**
+   - 修正したコードの動作確認
+   - テストの実行
 
-3. **テストコードの復活**
-   - スキップテストを有効化
-   - 修正が必要なテストファイルを特定
-   - ユニットテストの実行環境を確認
+3. **ドキュメント化**
+   - 採用したパターンの文書化
+   - 新アーキテクチャの説明
 
-型ガードアプローチを利用したまだ解決していないファイルの修正に難易度はあるが、今回成功したアプローチをもとに作業が進められる可能性が高まったのだ。
+型ガードを活用した安全なアクセスパターンの確立により、抽象化レイヤーとts-morphの実装の橋渡しがスムーズになり、プロジェクト全体の型安全性を維持しながら抽象化を進められるようになったのだ。

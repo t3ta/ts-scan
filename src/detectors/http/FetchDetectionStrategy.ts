@@ -117,7 +117,7 @@ class StandardFetchCallDetector extends BasePatternDetector {
       const bodyNode = NodeExtractorsExtended.extractPropertyValue(optionsObj, 'body');
       if (bodyNode) {
         // JSONオブジェクトを解析して取得
-        if (bodyNode.isKind?.(NodeKind.ObjectLiteralExpression)) {
+        if ('isKind' in bodyNode && typeof bodyNode.isKind === 'function' && (bodyNode as any).isKind(NodeKind.ObjectLiteralExpression)) {
           const bodyProps = NodeExtractorsExtended.extractObjectProperties(bodyNode);
 
           params = [...params, ...bodyProps.map((prop: { name: string }) => ({
@@ -128,7 +128,7 @@ class StandardFetchCallDetector extends BasePatternDetector {
         }
 
         // 直接オブジェクトリテラルの場合
-        if (bodyNode.isKind(NodeKind.ObjectLiteralExpression)) {
+        if ('isKind' in bodyNode && typeof bodyNode.isKind === 'function' && (bodyNode as any).isKind(NodeKind.ObjectLiteralExpression)) {
           const objProps = NodeExtractorsExtended.extractObjectProperties(bodyNode);
 
           params = [
@@ -144,7 +144,7 @@ class StandardFetchCallDetector extends BasePatternDetector {
 
       // headersプロパティからヘッダーを抽出
       const headersNode = NodeExtractorsExtended.extractPropertyValue(optionsObj, 'headers');
-      if (headersNode && headersNode.isKind?.(NodeKind.ObjectLiteralExpression)) {
+      if (headersNode && 'isKind' in headersNode && typeof headersNode.isKind === 'function' && (headersNode as any).isKind(NodeKind.ObjectLiteralExpression)) {
         const headerProps = NodeExtractorsExtended.extractObjectProperties(headersNode);
 
         params = [
@@ -196,7 +196,9 @@ class StandardFetchCallDetector extends BasePatternDetector {
 
         // thenメソッドを検出
         if (NodePredicates.isMethodCall?.(chainNode, 'then')) {
-          const thenArgs = chainNode.isKind(NodeKind.CallExpression) ? chainNode.getArguments?.() || [] : [];
+          // isKindとgetArgumentsメソッドの存在チェック
+          const isCallExpr = 'isKind' in chainNode && typeof chainNode.isKind === 'function' && (chainNode as any).isKind(NodeKind.CallExpression);
+          const thenArgs = isCallExpr && 'getArguments' in chainNode && typeof chainNode.getArguments === 'function' ? chainNode.getArguments() || [] : [];
 
           if (thenArgs.length > 0) {
             // 最初のthenは通常レスポンスオブジェクトを解析する処理

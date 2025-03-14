@@ -252,8 +252,8 @@ export class ServiceMethodDetector extends BasePatternDetector {
     
     return {
       filePath: sourceFile.getFilePath(),
-      lineNumber: location.lineNumber,
-      columnNumber: location.columnNumber,
+      lineNumber: location.lineNumber ?? 1, // デフォルト値を与える
+      columnNumber: location.columnNumber ?? 1, // デフォルト値を与える
       context: contextName,
       codeSnippet: node.getText().slice(0, 100) // 先頭100文字までを取得
     };

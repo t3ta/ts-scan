@@ -5,20 +5,14 @@
 - ブランチ `feature/ts-morph-dep` の作成完了
 - AST操作の抽象インターフェース層の設計と実装
   - `IASTProvider` インターフェースの実装
-  - `ISourceFile` インターフェースの実装
+  - `ISourceFile` インターフェースの実装（INodeを継承するように修正）
   - `INode` インターフェースの実装
   - 関連インターフェース（`IFunction`, `IClass`, `IInterface`, `IProperty`, `IVariable`, `IImportDeclaration`等）の実装
 - アダプター層の実装
   - `TsMorphAdapter` - ts-morphをIASTProviderに適合させるアダプター
   - `TsMorphSourceFileAdapter` - ts-morphのSourceFileをISourceFileに適合させる
   - `TsMorphNodeAdapter` - ts-morphのNodeをINodeに適合させる
-  - `TsMorphFunctionAdapter` - 関数宣言のアダプター
-  - `TsMorphParameterAdapter` - パラメータのアダプター
-  - `TsMorphTypeAdapter` - 型情報のアダプター
-  - `TsMorphClassAdapter` - クラス宣言のアダプター
-  - `TsMorphInterfaceAdapter` - インターフェース宣言のアダプター
-  - `TsMorphVariableAdapter` - 変数宣言のアダプター
-  - `TsMorphImportDeclarationAdapter` - インポート宣言のアダプター
+  - その他のアダプター実装
 - モックプロバイダーの実装
   - `MockProvider` クラスの実装
   - `MockSourceFile` クラスの実装
@@ -27,7 +21,7 @@
 - スナップショット機構の構築
   - スナップショット形式の設計と実装
   - スナップショット生成・読み込みユーティリティの実装
-  - 基本的なスナップショットデータの作成（`basic-function.json`, `axios-client-usage.json`）
+  - 基本的なスナップショットデータの作成
 - DI機構の拡張
   - `ASTProviderFactory` の実装 - 環境に応じた適切なプロバイダーを生成
   - `ServiceLocator` にASTプロバイダー関連メソッドを追加
@@ -42,106 +36,48 @@
 - 型定義の更新
   - `types.ts` における `DetectionContext` や `EndpointDetectionStrategy` インターフェースの修正
   - 抽象インターフェースを活用した型定義の改善
-- 検出器モジュールのリファクタリング
-  - 主要な検出戦略クラスのts-morph直接依存を抽象インターフェース依存に変更完了
-  - パターン検出器クラスの修正完了
-    - `CreateApiCallDetector`
-    - `EndpointDefinitionDetector`
-    - `EnhancedEndpointDefinitionDetector`
-    - `ApiInstanceUsageDetector`
-    - `ApiClientMethodCallDetector`
-    - `HttpPatternDetector`
-    - `ServiceMethodDetector`
 - AST操作ユーティリティクラスの修正
-  - `NodeTraversal.ts` がINodeインターフェイスに対応
-  - `NodePredicates.ts` がINodeインターフェイスに対応
-  - `NodeExtractors.ts` をINodeインターフェースに完全対応
-  - `NodeExtractorsExtended.ts` をINodeインターフェースに完全対応
+  - `NodeTraversal.ts` を完全修正（型ガードとオプショナルチェイニング導入）
+  - `NodePredicates.ts` を完全修正（型ガードとオプショナルチェイニング導入）
+  - `NodeExtractors.ts` をINodeインターフェースに対応
+  - `NodeExtractorsExtended.ts` をINodeインターフェースに対応
   - 型ガード関数（isINode, isTsMorphNode）を導入
   - NodeKind列挙型にMethodDeclarationを追加
-  - 型安全なノード変換処理の実装ダプター
-  - `TsMorphSourceFileAdapter` - ts-morphのSourceFileをISourceFileに適合させる
-  - `TsMorphNodeAdapter` - ts-morphのNodeをINodeに適合させる
-  - `TsMorphFunctionAdapter` - 関数宣言のアダプター
-  - `TsMorphParameterAdapter` - パラメータのアダプター
-  - `TsMorphTypeAdapter` - 型情報のアダプター
-  - `TsMorphClassAdapter` - クラス宣言のアダプター
-  - `TsMorphInterfaceAdapter` - インターフェース宣言のアダプター
-  - `TsMorphVariableAdapter` - 変数宣言のアダプター
-  - `TsMorphImportDeclarationAdapter` - インポート宣言のアダプター
-- モックプロバイダーの実装
-  - `MockProvider` クラスの実装
-  - `MockSourceFile` クラスの実装
-  - `MockNode` クラスの実装
-  - スナップショットベースのモック機構の実装
-- スナップショット機構の構築
-  - スナップショット形式の設計と実装
-  - スナップショット生成・読み込みユーティリティの実装
-  - 基本的なスナップショットデータの作成（`basic-function.json`, `axios-client-usage.json`）
-- DI機構の拡張
-  - `ASTProviderFactory` の実装 - 環境に応じた適切なプロバイダーを生成
-  - `ServiceLocator` にASTプロバイダー関連メソッドを追加
-  - 環境検出と適切なプロバイダー選択ロジックの実装
-- テストヘルパーの整備
-  - `ast-helpers.ts` - ASTモック生成・操作ヘルパー
-  - スナップショットロードユーティリティの実装
-  - テスト用ファクトリー関数の実装
-- `AnalyzerEngine` のリファクタリング
-  - ts-morph直接参照から抽象インターフェース経由の操作に変更
-  - DI機構を活用したプロバイダー取得・初期化プロセスの改善
-- 型定義の更新
-  - `types.ts` における `DetectionContext` や `EndpointDetectionStrategy` インターフェースの修正
-  - 抽象インターフェースを活用した型定義の改善
-- 検出器モジュールのリファクタリング
-  - 主要な検出戦略クラスのts-morph直接依存を抽象インターフェース依存に変更完了
-  - パターン検出器クラスの修正完了
-    - `CreateApiCallDetector`
-    - `EndpointDefinitionDetector`
-    - `EnhancedEndpointDefinitionDetector`
-    - `ApiInstanceUsageDetector`
-    - `ApiClientMethodCallDetector`
-    - `HttpPatternDetector`
-    - `ServiceMethodDetector`
-- AST操作ユーティリティクラスの修正
-  - `NodeTraversal.ts` がINodeインターフェイスに対応
-  - `NodePredicates.ts` がINodeインターフェイスに対応
+  - SyntaxKind名前空間の導入によるNodeKindとの互換性確保
+- 検出戦略クラスの修正
+  - `FetchDetectionStrategy.ts` を完全修正
+  - `HttpPatternDetector.ts` を完全修正
+  - `ServiceMethodDetector.ts` を完全修正
+  - `ApiClientMethodCallDetector.ts` を完全修正
+  - `AxiosDetectionStrategy.ts` を完全修正
+- インターフェース拡張
+  - `NodeLocation` インターフェースに `lineNumber` と `columnNumber` プロパティを追加
+  - `getAncestors?()` メソッドをINodeインターフェースに追加
 
 ## 作業中の部分
 
-- AST操作ユーティリティクラスの修正
-  - `NodeExtractors.ts` をINodeインターフェイスに完全対応させる作業進行中
-  - ~~`NodeExtractorsExtended.ts` をINodeインターフェイスに完全対応させる作業進行中~~（完了）
-  - タイプチェッカー関連の型エラーを解消中
+- 残りのコンパイルエラーの解消
+  - `MockNode.ts` のエラー修正
+  - `PatternDetector.ts` のエラー解消
+  - `DefaultDetectionStrategy.ts` のエラー解消
+  - その他のファイルのエラー解消
 
 ## 未実装の機能や残作業
 
-## 高優先度
+### 高優先度
 
-- [ ] AST操作ユーティリティの完全互換対応
-  - [x] NodeTraversalのINode対応
-  - [x] NodePredicatesのINode対応
-  - [ ] NodeExtractorsの完全互換対応（タイプエラー解消）
-  - [x] NodeExtractorsExtendedの完全互換対応（タイプエラー解消）
+- [ ] 残りのエラー解消
+  - [ ] MockNode.tsのエラー修正
+  - [ ] PatternDetector.tsのエラー解消
+  - [ ] DefaultDetectionStrategy.tsのエラー解消
+  - [ ] TsMorphAdapter.tsとTsMorphSourceFileAdapter.tsの修正
 
 - [ ] 型互換性の問題解決
-  - [ ] Node/INode混在の解消
   - [ ] TypeCheckerなどts-morph固有の型の扱い
-  - [ ] 条件付きメソッドの安全な呼び出し（オプショナルチェイニングを活用）
 
 - [ ] 一部テストの修正と実行
-  - [x] MockNodeのfindDescendants機能の修正
-  - [x] IFunctionインターフェースの実装追加
-  - [x] NodeKind列挙体とスナップショットの整合
-  - [x] ServiceLocatorテストの修正
-  - [x] StrategyRegistryテストの修正
-  - [x] AnalyzerEngineとServiceLocatorの互換性問題の解決
-  - [x] AxiosDetectionStrategy.test.tsのISourceFile化への対応（部分的）
-  - [x] インターフェース拡張
-    - [x] INodeDiagnosticsインターフェースの追加
-    - [x] MockNodeの実装拡張
-    - [x] NodeExtractorsExtendedのインターフェース対応
-    - [x] NodePredicatesのインターフェース対応
-  - [ ] 残りのテストファイル修正
+  - [ ] モックインターフェースの実装追加
+  - [ ] テストの修正と有効化
 
 ### 中優先度
 
@@ -164,24 +100,20 @@
 
 ## 現在のステータス
 
-- 実装フェーズ: AST操作ユーティリティクラスの修正進行中
-  - NodeTraversalをINodeインターフェースに対応完了
-  - NodePredicatesをINodeインターフェースに対応完了
-  - INodeインターフェースを拡張して必要なメソッドを追加
-  - NodeExtractors/NodeExtractorsExtendedの修正作業中
-  - 型互換性の問題に対処中
+- 実装フェーズ: AST操作ユーティリティクラスと検出戦略クラスの修正が進行中
+  - 型ガードとオプショナルチェイニングを組み合わせた安全なアクセスパターンの確立
+  - 多くのファイルで型エラーを解消済み
+  - 残りのコンパイルエラーを順次解消中
 
-- 次のフェーズ: 残りのコンパイルエラー解決
-  - 型の互換性問題の解決
-  - ts-morph固有の型（TypeCheckerなど）の扱いの適正化
-  - テスト環境の安定化
+- 次のフェーズ: テストの有効化と検証
+  - スキップテストの有効化
+  - テスト実行環境の安定化
 
 ## 環境依存の課題
 
 - ts-morphのAPIとの互換性確保
-  - ts-morphのバージョンによる差異への対応
-  - 一部メソッド（`isDotDotDot()` など）の有無に対する代替実装
-  - 型の齟齬（`SyntaxKind` と文字列比較など）の修正
+  - SyntaxKind名前空間の導入による解決
+  - 型ガードとキャストの組み合わせ
 
 - テスト実行環境の安定化
   - ServiceLocatorのコンストラクタアクセス問題
@@ -189,12 +121,11 @@
 
 ## 今後の展開
 
-1. AST操作ユーティリティクラスの完全修正
-2. 残りのコンパイルエラーの解消
-3. テスト実行環境の改善と全テストの検証
-4. スキップテストの有効化と検証
-5. 統合テストの実行とCI/CD環境での安定性確認
-6. ドキュメントの整備と知見の共有
+1. 残りのコンパイルエラーの解消
+2. テスト実行環境の改善と全テストの検証
+3. スキップテストの有効化と検証
+4. 統合テストの実行とCI/CD環境での安定性確認
+5. ドキュメントの整備と知見の共有
 
 ## 技術的リスクと緩和策
 
@@ -208,5 +139,19 @@
    - 緩和策: ts-morphバージョン間の差異をアダプターで吸収する設計
 
 4. **型互換性の問題**
-   - 緩和策: 適切な型ガードとオプショナルチェイニングを使用
-   - 緩和策: 部分的なany型の使用で型システムのエラーを回避
+   - 緩和策: 型ガードとオプショナルチェイニングによる安全なアクセス
+   - 緩和策: 必要な場合のみ限定的に型キャストを使用
+
+## 成功事例と教訓
+
+1. **型ガードパターンの有効性**
+   - 成功: `isINode`と`isTsMorphNode`型ガードで型互換性問題を解決
+   - 教訓: 適切な型ガードは型システムの柔軟性を高める
+
+2. **オプショナルチェイニングの活用**
+   - 成功: getExpression?()などのオプショナルチェイニングで安全なアクセスを実現
+   - 教訓: 複数のチェックを組み合わせることで型安全性を確保
+
+3. **インターフェース設計の重要性**
+   - 成功: 抽象インターフェースによりテスト可能性が向上
+   - 教訓: インターフェースは最小限に保ちつつ必要な拡張が可能な柔軟性を持たせる

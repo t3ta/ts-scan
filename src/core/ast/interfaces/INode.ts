@@ -125,12 +125,28 @@ export enum NodeKind {
   Unknown
 }
 
+// ts-morphのSyntaxKind値を使用するためのナンバースペース
+// 外部モジュールで元の値が参照されている場合に互換性を持たせるため
+// 実際の値は重要ではなく、namespaceの定義が重要
+// 必要に応じて対応するSyntaxKind値を追加すると良い
+export namespace SyntaxKind {
+  export const PropertyAccessExpression = NodeKind.PropertyAccessExpression;
+  export const CallExpression = NodeKind.CallExpression;
+  export const StringLiteral = NodeKind.StringLiteral;
+  export const ArrowFunction = NodeKind.ArrowFunction;
+  export const ObjectLiteralExpression = NodeKind.ObjectLiteralExpression;
+  export const PropertyAssignment = NodeKind.PropertyAssignment;
+  export const NoSubstitutionTemplateLiteral = NodeKind.NoSubstitutionTemplateLiteral;
+}
+
 /**
  * ノードの位置情報
  */
 export interface NodeLocation {
   line: number;
   column: number;
+  lineNumber?: number; // RTKQueryDetectionStrategy.tsで使用されているプロパティ
+  columnNumber?: number; // EnhancedEndpointDefinitionDetector.tsで使用されている
   start: number;
   end: number;
 }
@@ -214,4 +230,10 @@ export interface INode extends INodeDiagnostics {
    * @returns 式ノード
    */
   getExpression?(): INode;
+  
+  /**
+   * このノードの全ての先祖ノードを取得する
+   * @returns 先祖ノードの配列
+   */
+  getAncestors?(): INode[];
 }

@@ -3,6 +3,14 @@ import { INode, NodeKind } from '../../core/ast/interfaces/INode';
 
 export class NodeTraversal {
   /**
+   * INodeインターフェースを持つオブジェクトかどうかを判別する型ガード
+   * @param node 検査対象ノード
+   * @returns INodeインターフェースを持つオブジェクトならtrue
+   */
+  private static isINode(node: any): node is INode {
+    return 'isKind' in node && typeof node.isKind === 'function';
+  }
+  /**
    * 最初の先祖ノードを見つける
    * @param node 開始ノード
    * @param predicate 検索条件
@@ -87,25 +95,30 @@ export class NodeTraversal {
    */
   public static analyzeMethodChain(node: INode): { method: string; args: INode[] }[] {
     const chain: { method: string; args: INode[] }[] = [];
-    let current = node;
+    let current: INode | null = node;
 
     while (current) {
       if (current.isKind(NodeKind.CallExpression)) {
-        const expression = current.getExpression();
-        if (expression.isKind(NodeKind.PropertyAccessExpression)) {
-          chain.unshift({
-            method: expression.getName(),
-            args: current.getArguments()
-          });
+        // ここでgetExpression?()が返すものは型アノテーションをつけて明示する
+        const expression: INode | null | undefined = current.getExpression?.();
+        if (expression && expression.isKind(NodeKind.PropertyAccessExpression)) {
+          const methodName = expression.getName?.();
+          const args = current.getArguments?.() || [];
+          if (methodName) {
+            chain.unshift({
+              method: methodName,
+              args: args
+            });
+          }
         }
-        current = expression;
+        current = expression || null;
       } else if (current.isKind(NodeKind.PropertyAccessExpression)) {
-        current = current.getExpression();
+        current = current.getExpression?.() || null;
       } else {
         break;
       }
     }
-
+    
     return chain;
   }
 
@@ -125,6 +138,7 @@ export class NodeTraversal {
       return false;
     }
 
-    return expression.getName?.() === methodName;
+    const name = expression.getName?.();
+    return name !== undefined && name === methodName;
   }
 }

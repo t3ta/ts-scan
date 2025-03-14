@@ -15,7 +15,7 @@ import { IImportDeclaration } from './IImportDeclaration';
 /**
  * TypeScriptソースファイルの抽象インターフェース
  */
-export interface ISourceFile {
+export interface ISourceFile extends INode {
   /**
    * ファイルパスを取得する
    * @returns ファイルの絶対パス

@@ -81,24 +81,22 @@ export class RtkEndpointDefinitionParser {
     apiMetadata: RTKApiMetadata,
     context: DetectionContext
   ): void {
+    // ts-morphの機能を直接利用
     // オブジェクトリテラルからのエンドポイント抽出
-    const objectLiterals = NodeTraversal.findNodes(
-      endpointsNode,
-      (node) => node.isKind(SyntaxKind.ObjectLiteralExpression)
-    );
+    const objectLiterals = endpointsNode.getDescendantsOfKind(SyntaxKind.ObjectLiteralExpression);
     
     for (const objLiteral of objectLiterals) {
       // query, mutationメソッド呼び出しを検索
-      const methodCalls = NodeTraversal.findNodes(
-        objLiteral, 
-        (node) => {
-          if (!node.isKind(SyntaxKind.PropertyAccessExpression)) {
-            return false;
-          }
-          const text = node.getText();
-          return text.includes('.query') || text.includes('.mutation');
+      const propAccessNodes = objLiteral.getDescendantsOfKind(SyntaxKind.PropertyAccessExpression);
+      const methodCalls: Node[] = [];
+      
+      // 適切なメソッド呼び出しをフィルタリング
+      for (const node of propAccessNodes) {
+        const text = node.getText();
+        if (text.includes('.query') || text.includes('.mutation')) {
+          methodCalls.push(node);
         }
-      );
+      }
       
       for (const methodCall of methodCalls) {
         try {
@@ -200,8 +198,9 @@ export class RtkEndpointDefinitionParser {
       if (initializer) {
         // 文字列リテラルの場合
         if (initializer.isKind(SyntaxKind.StringLiteral)) {
+          const strLiteral = initializer as StringLiteral;
           return {
-            path: (initializer as StringLiteral).getLiteralValue()
+            path: strLiteral.getLiteralValue()
           };
         }
         
@@ -215,24 +214,25 @@ export class RtkEndpointDefinitionParser {
         // 関数の場合（引数からパラメータ情報を抽出できる可能性あり）
         if (initializer.isKind(SyntaxKind.ArrowFunction)) {
           // 関数本体から文字列リテラルを検索
-          const stringLiterals = NodeTraversal.findNodes(
-            initializer,
-            (node) => node.isKind(SyntaxKind.StringLiteral) || 
-                     node.isKind(SyntaxKind.NoSubstitutionTemplateLiteral)
-          );
+          // NodeTraversalの代わりにts-morphの機能を直接使用
+          const arrowFunc = initializer as ArrowFunction;
           
-          if (stringLiterals.length > 0) {
-            const literal = stringLiterals[0];
-            if (literal.isKind(SyntaxKind.StringLiteral)) {
-              return {
-                path: (literal as StringLiteral).getLiteralValue()
-              };
-            }
-            if (literal.isKind(SyntaxKind.NoSubstitutionTemplateLiteral)) {
-              return {
-                path: literal.getText().slice(1, -1) // バッククォートを削除
-              };
-            }
+          // 文字列リテラルの取得
+          const stringLits = arrowFunc.getDescendantsOfKind(SyntaxKind.StringLiteral);
+          const templateLits = arrowFunc.getDescendantsOfKind(SyntaxKind.NoSubstitutionTemplateLiteral);
+          
+          if (stringLits.length > 0) {
+            const literal = stringLits[0];
+            return {
+              path: literal.getLiteralValue()
+            };
+          }
+          
+          if (templateLits.length > 0) {
+            const literal = templateLits[0];
+            return {
+              path: literal.getText().slice(1, -1) // バッククォートを削除
+            };
           }
         }
       }
@@ -253,20 +253,23 @@ export class RtkEndpointDefinitionParser {
     
     // 3. より複雑なケースをハンドル
     // 設定オブジェクト全体から文字列リテラルを検索
-    const stringLiterals = NodeTraversal.findNodes(
-      config,
-      (node) => node.isKind(SyntaxKind.StringLiteral) || 
-               node.isKind(SyntaxKind.NoSubstitutionTemplateLiteral)
-    );
+    // ts-morphのオブジェクトを直接使用
+    const stringLiterals = config.getDescendantsOfKind(SyntaxKind.StringLiteral);
+    const templateLiterals = config.getDescendantsOfKind(SyntaxKind.NoSubstitutionTemplateLiteral);
     
+    // 文字列リテラルを処理
     for (const literal of stringLiterals) {
-      let path: string;
+      const path = literal.getLiteralValue();
       
-      if (literal.isKind(SyntaxKind.StringLiteral)) {
-        path = (literal as StringLiteral).getLiteralValue();
-      } else { // NoSubstitutionTemplateLiteral
-        path = literal.getText().slice(1, -1); // バッククォートを削除
+      // URLらしい文字列か判定
+      if (UrlNormalizer.looksLikeUrl(path)) {
+        return { path, method };
       }
+    }
+    
+    // テンプレートリテラルを処理
+    for (const literal of templateLiterals) {
+      const path = literal.getText().slice(1, -1); // バッククォートを削除
       
       // URLらしい文字列か判定
       if (UrlNormalizer.looksLikeUrl(path)) {
@@ -290,17 +293,15 @@ export class RtkEndpointDefinitionParser {
     }
     
     // メソッド形式での変換処理チェック
-    const nodes = NodeTraversal.findNodes(
-      config,
-      (node) => {
-        if (!node.isKind(SyntaxKind.PropertyAccessExpression)) {
-          return false;
-        }
-        return node.getText().includes('transformResponse');
+    // ts-morphの機能を直接使用
+    const propAccessNodes = config.getDescendantsOfKind(SyntaxKind.PropertyAccessExpression);
+    for (const node of propAccessNodes) {
+      if (node.getName() === 'transformResponse' || node.getText().includes('transformResponse')) {
+        return true;
       }
-    );
+    }
     
-    return nodes.length > 0;
+    return false;
   }
 
   /**
@@ -344,12 +345,19 @@ export class RtkEndpointDefinitionParser {
     // 関数の場合
     if (initializer.isKind(SyntaxKind.ArrowFunction)) {
       // 関数内の文字列リテラルを収集
-      const stringLiterals = NodeTraversal.findNodes(
-        initializer,
-        (node) => node.isKind(SyntaxKind.StringLiteral)
-      );
+      // initializerをINodeとして扱うにはアダプターの利用が必要
+      // ここでは直接不要なので別のアプローチを取る
       
-      const tags = stringLiterals.map(node => (node as StringLiteral).getLiteralValue());
+      // ts-morphのts関数を直接利用
+      const arrowFunc = initializer as ArrowFunction;
+      const tags: string[] = [];
+      
+      // ArrowFunction内の文字列リテラルを検索
+      const stringLits = arrowFunc.getDescendantsOfKind(SyntaxKind.StringLiteral);
+      for (const lit of stringLits) {
+        tags.push(lit.getLiteralValue());
+      }
+      
       return tags.length > 0 ? tags : undefined;
     }
     

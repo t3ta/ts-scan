@@ -392,11 +392,19 @@ class AxiosInstanceMethodCallDetector extends BasePatternDetector {
     if (parentChain) {
       for (const chainNode of parentChain) {
         // thenメソッドを使っているか確認
-        const isChainThen = chainNode.isKind?.(NodeKind.CallExpression) && 
-                          (chainNode.getExpression?.()?.getText() || '').endsWith('.then');
+        const isCallExpr = 'isKind' in chainNode && typeof chainNode.isKind === 'function';
+        const hasGetExpression = 'getExpression' in chainNode && typeof chainNode.getExpression === 'function';
+        
+        let isChainThen = false;
+        if (isCallExpr && hasGetExpression) {
+          const exprNode = (chainNode as any).getExpression();
+          const exprText = exprNode?.getText() || '';
+          isChainThen = (chainNode as any).isKind(NodeKind.CallExpression) && exprText.endsWith('.then');
+        }
         
         if (isChainThen) {
-          const thenArgs = chainNode.isKind(NodeKind.CallExpression) ? chainNode.getArguments?.() || [] : [];
+          const hasArguments = 'getArguments' in chainNode && typeof chainNode.getArguments === 'function';
+          const thenArgs = hasArguments ? (chainNode as any).getArguments() || [] : [];
 
           if (thenArgs.length > 0) {
             const callbackBody = NodeExtractorsExtended.extractCallbackBody(thenArgs[0]);
@@ -677,11 +685,19 @@ class AxiosRequestConfigDetector extends BasePatternDetector {
     if (parentChain) {
       for (const chainNode of parentChain) {
         // thenメソッドを使っているか確認
-        const isChainThen = chainNode.isKind?.(NodeKind.CallExpression) && 
-                          (chainNode.getExpression?.()?.getText() || '').endsWith('.then');
+        const isNodeCallable = 'isKind' in chainNode && typeof chainNode.isKind === 'function';
+        const canGetExpression = 'getExpression' in chainNode && typeof chainNode.getExpression === 'function';
+        
+        let isChainThen = false;
+        if (isNodeCallable && canGetExpression) {
+          const exprNode = (chainNode as any).getExpression();
+          const exprText = exprNode?.getText() || '';
+          isChainThen = (chainNode as any).isKind(NodeKind.CallExpression) && exprText.endsWith('.then');
+        }
         
         if (isChainThen) {
-          const thenArgs = chainNode.isKind(NodeKind.CallExpression) ? chainNode.getArguments?.() || [] : [];
+          const hasArguments = 'getArguments' in chainNode && typeof chainNode.getArguments === 'function';
+          const thenArgs = hasArguments ? (chainNode as any).getArguments() || [] : [];
 
           if (thenArgs.length > 0) {
             const callbackBody = NodeExtractorsExtended.extractCallbackBody(thenArgs[0]);
