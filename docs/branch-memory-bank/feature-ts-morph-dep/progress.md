@@ -60,7 +60,7 @@
 
 - AST操作ユーティリティクラスの修正
   - `NodeExtractors.ts` をINodeインターフェイスに完全対応させる作業進行中
-  - `NodeExtractorsExtended.ts` をINodeインターフェイスに完全対応させる作業進行中
+  - ~~`NodeExtractorsExtended.ts` をINodeインターフェイスに完全対応させる作業進行中~~（完了）
   - タイプチェッカー関連の型エラーを解消中
 
 ## 未実装の機能や残作業
@@ -71,7 +71,7 @@
   - [x] NodeTraversalのINode対応
   - [x] NodePredicatesのINode対応
   - [ ] NodeExtractorsの完全互換対応（タイプエラー解消）
-  - [ ] NodeExtractorsExtendedの完全互換対応（タイプエラー解消）
+  - [x] NodeExtractorsExtendedの完全互換対応（タイプエラー解消）
 
 - [ ] 型互換性の問題解決
   - [ ] Node/INode混在の解消

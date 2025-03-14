@@ -33,14 +33,14 @@ feature/ts-morph-dep ブランチにおける作業は、ヘキサゴナルア�
 - ServiceLocatorとStrategyRegistryのテスト修正
 - 検出戦略クラスのISourceFile・INode対応
 - パターン検出器クラスのINode対応
-- AST操作ユーティリティの一部修正（NodeTraversal, NodePredicates）
+- AST操作ユーティリティの一部修正（NodeTraversal, NodePredicates, NodeExtractorsExtended）
 
 ## 現在取り組んでいる課題
 
 現在、以下の課題に取り組んでいるのだ：
 
 1. **AST操作ユーティリティクラスの修正**
-   - NodeExtractors, NodeExtractorsExtendedクラスをINodeインターフェースに完全対応
+   - NodeExtractorsクラスをINodeインターフェースに完全対応
    - 型の互換性問題を解決（Node型とINode型の混在）
    - ts-morph固有の型（TypeCheckerなど）の扱いを適正化
 
@@ -50,15 +50,15 @@ feature/ts-morph-dep ブランチにおける作業は、ヘキサゴナルア�
    - 条件付きの型ガードを活用した実行時型チェック
 
 3. **インターフェース拡張**
-   - INode.tsインターフェースを拡張してgetName(), getExpression(), getArguments()などの必要なメソッドを追加
-   - NodeKind列挙型にArrowFunctionなどの必要な値を追加
+   - INode.tsインターフェースを拡張して必要なメソッドを追加
+   - NodeKind列挙型に新しい値を追加
    - オプショナルメソッドの適切な型定義
 
 ## 今アクティブな決定事項
 
 1. **型の互換性問題への対応戦略**
-   - ユーティリティ関数内で 'isKind' in node などの型ガードを使用して区別
-   - TypeCheckerなどのts-morph固有型は一時的にany型として扱う
+   - isINode型ガード関数を使用して実行時の型を判別
+   - TypeCheckerなどのts-morph固有型はgetInternalNodeメソッドでbridge
    - オプショナルチェイニング演算子を活用して安全にメソッドにアクセス
 
 2. **インターフェース設計**
@@ -93,7 +93,7 @@ feature/ts-morph-dep ブランチにおける作業は、ヘキサゴナルア�
 
 1. **ユーティリティクラスの完全修正**
    - NodeExtractors.tsの残りのエラーを解消
-   - NodeExtractorsExtended.tsの残りのエラーを解消
+   - ✅ NodeExtractorsExtended.tsの残りのエラーを解消（完了）
    - 追加で必要なインターフェース拡張があれば実施
 
 2. **コンパイルエラーの完全解消**
