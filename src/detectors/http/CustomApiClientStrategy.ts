@@ -5,7 +5,8 @@
  * 複数の検出器を組み合わせて高度な検出ロジックを実現するコンポジットパターンを採用しています。
  */
 
-import { Node, SourceFile } from 'ts-morph';
+// ts-morphの直接インポートを避け、抽象インターフェースのみを使用するのだ
+import { ISourceFile } from '../../core/ast/interfaces/ISourceFile';
 import { BaseDetectionStrategy } from '../common/BaseDetectionStrategy';
 import { EndpointInfo, DetectionContext } from '../../types';
 import { ApiClientMethodCallDetector } from './custom/ApiClientMethodCallDetector';
@@ -33,7 +34,7 @@ export class CustomApiClientStrategy extends BaseDetectionStrategy {
    * @param context 検出コンテキスト
    * @returns 検出されたエンドポイント情報配列
    */
-  protected performDetection(sourceFile: SourceFile, context: DetectionContext): EndpointInfo[] {
+  protected performDetection(sourceFile: ISourceFile, context: DetectionContext): EndpointInfo[] {
     logger.debug(`[${this.name}] 検出開始: ${sourceFile.getFilePath()}`);
     
     // 各検出器を順番に実行
@@ -64,7 +65,7 @@ export class CustomApiClientStrategy extends BaseDetectionStrategy {
    * @param sourceFile 解析対象ソースファイル
    * @param context 検出コンテキスト
    */
-  protected prepareDetection(sourceFile: SourceFile, context: DetectionContext): void {
+  protected prepareDetection(sourceFile: ISourceFile, context: DetectionContext): void {
     // ファイル内でカスタムAPIクライアントの存在を確認するための前処理
     // 例: import文の解析、クラス定義の収集など
     logger.debug(`[${this.name}] ${sourceFile.getFilePath()} の前処理を実行`);
@@ -78,7 +79,7 @@ export class CustomApiClientStrategy extends BaseDetectionStrategy {
    */
   protected finalizeDetection(
     endpoints: EndpointInfo[],
-    sourceFile: SourceFile,
+    sourceFile: ISourceFile,
     context: DetectionContext
   ): void {
     super.finalizeDetection(endpoints, sourceFile, context);

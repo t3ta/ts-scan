@@ -5,20 +5,22 @@
  * useQuery/useMutationフックの使用箇所を検出します。
  */
 
-import { Node, SourceFile } from 'ts-morph';
+// ts-morphの直接インポートを避け、抽象インターフェースのみを使用するのだ
+import { INode } from '../../../core/ast/interfaces/INode';
 import { 
   DetectionContext, 
-  EndpointInfo,
-  EndpointPatternDetector
+  EndpointInfo
 } from '../../../types';
 import { logger } from '../../../utils/Logger';
 import { NodePredicates } from '../../../utils/ast/NodePredicates';
 import { RtkQueryApiParser } from '../parsers/RtkQueryApiParser';
+import { BasePatternDetector } from '../../common/PatternDetector';
 
 /**
  * APIインスタンス使用検出クラス
  */
-export class ApiInstanceUsageDetector implements EndpointPatternDetector {
+export class ApiInstanceUsageDetector extends BasePatternDetector {
+  readonly patternName = 'ApiInstanceUsage';
   private apiParser: RtkQueryApiParser;
 
   /**
@@ -26,6 +28,7 @@ export class ApiInstanceUsageDetector implements EndpointPatternDetector {
    * @param apiParser RTK Query API解析インスタンス
    */
   constructor(apiParser: RtkQueryApiParser) {
+    super();
     this.apiParser = apiParser;
   }
 
@@ -34,8 +37,8 @@ export class ApiInstanceUsageDetector implements EndpointPatternDetector {
    * @param node 対象ノード
    * @returns パターンが適用可能かどうか
    */
-  public canHandle(node: Node): boolean {
-    return NodePredicates.isRtkQueryHookCall(node);
+  public canHandle(node: INode): boolean {
+    return NodePredicates.isRtkQueryHookCall(node as any);
   }
 
   /**
@@ -44,12 +47,12 @@ export class ApiInstanceUsageDetector implements EndpointPatternDetector {
    * @param context 検出コンテキスト
    * @returns 抽出されたエンドポイント情報配列
    */
-  public extractEndpoints(node: Node, context: DetectionContext): EndpointInfo[] {
+  public extractEndpoints(node: INode, context: DetectionContext): EndpointInfo[] {
     logger.debug(`[ApiInstanceUsageDetector] APIインスタンス使用からエンドポイント抽出開始`);
     
     try {
       // エンドポイント使用解析
-      const endpointInfo = this.apiParser.analyzeEndpointUsage(node, context.sourceFile, context);
+      const endpointInfo = this.apiParser.analyzeEndpointUsage(node as any, context.sourceFile as any, context);
       
       if (endpointInfo) {
         return [endpointInfo];

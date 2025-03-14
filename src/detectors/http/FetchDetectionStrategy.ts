@@ -5,7 +5,9 @@
  * エンドポイント情報を抽出します。様々な呼び出しパターンに対応します。
  */
 
-import { Node, SourceFile, SyntaxKind } from 'ts-morph';
+// ts-morphの直接インポートを避け、抽象インターフェースのみを使用するのだ
+import { ISourceFile } from '../../core/ast/interfaces/ISourceFile';
+import { INode, NodeKind } from '../../core/ast/interfaces/INode';
 import { BaseDetectionStrategy } from '../common/BaseDetectionStrategy';
 import { BasePatternDetector } from '../common/PatternDetector';
 import { EndpointInfo, DetectionContext, HttpMethod, UsageLocation, ParameterUsage, ResponseUsage } from '../../types';
@@ -25,12 +27,13 @@ class StandardFetchCallDetector extends BasePatternDetector {
   /**
    * 標準的なfetch呼び出しを検出
    */
-  public canHandle(node: Node): boolean {
-    if (!node.isKind(SyntaxKind.CallExpression)) {
+  public canHandle(node: INode): boolean {
+    if (!node.isKind(NodeKind.CallExpression)) {
       return false;
     }
 
-    const expression = node.getExpression();
+    const expression = node.getExpression?.();
+    if (!expression) return false;
 
     // パターン1: fetch(url, options)
     if (expression.getText() === 'fetch') {
@@ -39,27 +42,27 @@ class StandardFetchCallDetector extends BasePatternDetector {
 
     // パターン2: window.fetch(url, options)
     if (
-      expression.isKind(SyntaxKind.PropertyAccessExpression) &&
-      expression.getExpression().getText() === 'window' &&
-      expression.getName() === 'fetch'
+      expression.isKind(NodeKind.PropertyAccessExpression) &&
+      expression.getExpression?.()?.getText() === 'window' &&
+      (expression as any).getName?.() === 'fetch'
     ) {
       return true;
     }
 
     // パターン3: self.fetch(url, options)
     if (
-      expression.isKind(SyntaxKind.PropertyAccessExpression) &&
-      expression.getExpression().getText() === 'self' &&
-      expression.getName() === 'fetch'
+      expression.isKind(NodeKind.PropertyAccessExpression) &&
+      expression.getExpression?.()?.getText() === 'self' &&
+      (expression as any).getName?.() === 'fetch'
     ) {
       return true;
     }
 
     // パターン4: global.fetch(url, options)
     if (
-      expression.isKind(SyntaxKind.PropertyAccessExpression) &&
-      expression.getExpression().getText() === 'global' &&
-      expression.getName() === 'fetch'
+      expression.isKind(NodeKind.PropertyAccessExpression) &&
+      expression.getExpression?.()?.getText() === 'global' &&
+      (expression as any).getName?.() === 'fetch'
     ) {
       return true;
     }
@@ -70,13 +73,13 @@ class StandardFetchCallDetector extends BasePatternDetector {
   /**
    * fetch呼び出しからエンドポイント情報を抽出
    */
-  public extractEndpoints(node: Node, context: DetectionContext): EndpointInfo[] {
-    if (!Node.isCallExpression(node)) {
+  public extractEndpoints(node: INode, context: DetectionContext): EndpointInfo[] {
+    if (!node.isKind(NodeKind.CallExpression)) {
       return [];
     }
 
     const callExpr = node;
-    const args = callExpr.getArguments();
+    const args = callExpr.getArguments?.() || [];
 
     if (args.length === 0) {
       return [];
@@ -98,7 +101,7 @@ class StandardFetchCallDetector extends BasePatternDetector {
     let params: ParameterUsage[] = [];
 
     // オプション引数がある場合、メソッドとパラメータを抽出
-    if (args.length > 1 && args[1].isKind(SyntaxKind.ObjectLiteralExpression)) {
+    if (args.length > 1 && args[1].isKind(NodeKind.ObjectLiteralExpression)) {
       const optionsObj = args[1];
 
       // methodプロパティからHTTPメソッドを抽出
@@ -114,7 +117,7 @@ class StandardFetchCallDetector extends BasePatternDetector {
       const bodyNode = NodeExtractorsExtended.extractPropertyValue(optionsObj, 'body');
       if (bodyNode) {
         // JSONオブジェクトを解析して取得
-        if (bodyNode.isKind?.(SyntaxKind.ObjectLiteralExpression)) {
+        if (bodyNode.isKind?.(NodeKind.ObjectLiteralExpression)) {
           const bodyProps = NodeExtractorsExtended.extractObjectProperties(bodyNode);
 
           params = [...params, ...bodyProps.map((prop: { name: string }) => ({
@@ -125,7 +128,7 @@ class StandardFetchCallDetector extends BasePatternDetector {
         }
 
         // 直接オブジェクトリテラルの場合
-        if (bodyNode.isKind(SyntaxKind.ObjectLiteralExpression)) {
+        if (bodyNode.isKind(NodeKind.ObjectLiteralExpression)) {
           const objProps = NodeExtractorsExtended.extractObjectProperties(bodyNode);
 
           params = [
@@ -141,7 +144,7 @@ class StandardFetchCallDetector extends BasePatternDetector {
 
       // headersプロパティからヘッダーを抽出
       const headersNode = NodeExtractorsExtended.extractPropertyValue(optionsObj, 'headers');
-      if (headersNode && headersNode.isKind?.(SyntaxKind.ObjectLiteralExpression)) {
+      if (headersNode && headersNode.isKind?.(NodeKind.ObjectLiteralExpression)) {
         const headerProps = NodeExtractorsExtended.extractObjectProperties(headersNode);
 
         params = [
@@ -193,7 +196,7 @@ class StandardFetchCallDetector extends BasePatternDetector {
 
         // thenメソッドを検出
         if (NodePredicates.isMethodCall?.(chainNode, 'then')) {
-          const thenArgs = chainNode.isKind(SyntaxKind.CallExpression) ? chainNode.getArguments() : [];
+          const thenArgs = chainNode.isKind(NodeKind.CallExpression) ? chainNode.getArguments?.() || [] : [];
 
           if (thenArgs.length > 0) {
             // 最初のthenは通常レスポンスオブジェクトを解析する処理
@@ -269,7 +272,7 @@ class StandardFetchCallDetector extends BasePatternDetector {
   /**
    * 使用箇所の詳細情報を作成
    */
-  private createUsageLocation(node: Node, sourceFile: SourceFile, context?: string): UsageLocation {
+  private createUsageLocation(node: INode, sourceFile: ISourceFile, context?: string): UsageLocation {
     // 行番号と列番号のデフォルト値を設定
     const lineNumber = 1;  // デフォルト値
     const columnNumber = 1;  // デフォルト値
@@ -299,12 +302,14 @@ class CustomFetchWrapperDetector extends BasePatternDetector {
   /**
    * カスタムfetchラッパー関数呼び出しを検出
    */
-  public canHandle(node: Node): boolean {
-    if (!node.isKind(SyntaxKind.CallExpression)) {
+  public canHandle(node: INode): boolean {
+    if (!node.isKind(NodeKind.CallExpression)) {
       return false;
     }
 
-    const expression = node.getExpression();
+    const expression = node.getExpression?.();
+    if (!expression) return false;
+    
     const functionName = expression.getText();
 
     // fetchっぽい名前を持つ関数呼び出しを検出
@@ -327,21 +332,21 @@ class CustomFetchWrapperDetector extends BasePatternDetector {
    * カスタムfetchラッパーからエンドポイント情報を抽出
    * 簡略化した実装に変更
    */
-  public extractEndpoints(node: Node, context: DetectionContext): EndpointInfo[] {
-    if (!Node.isCallExpression(node)) {
+  public extractEndpoints(node: INode, context: DetectionContext): EndpointInfo[] {
+    if (!node.isKind(NodeKind.CallExpression)) {
       return [];
     }
 
     const callExpr = node;
-    const args = callExpr.getArguments();
+    const args = callExpr.getArguments?.() || [];
 
     if (args.length === 0) {
       return [];
     }
 
     // 関数名からHTTPメソッドを推測
-    const functionName = (callExpr.getExpression && callExpr.getExpression()) ?
-                         callExpr.getExpression().getText() : '';
+    const functionName = callExpr.getExpression?.() ?
+                         callExpr.getExpression?.()?.getText() || '' : '';
     const methodValue = MethodInference.inferMethodFromName(functionName);
 
     // 最初の引数がURL文字列である可能性を確認
@@ -406,7 +411,7 @@ class CustomFetchWrapperDetector extends BasePatternDetector {
   /**
    * 使用箇所の詳細情報を作成
    */
-  private createUsageLocation(node: Node, sourceFile: SourceFile, context?: string): UsageLocation {
+  private createUsageLocation(node: INode, sourceFile: ISourceFile, context?: string): UsageLocation {
     // 行番号と列番号のデフォルト値を設定
     const lineNumber = 1;  // デフォルト値
     const columnNumber = 1;  // デフォルト値
@@ -442,7 +447,7 @@ export class FetchDetectionStrategy extends BaseDetectionStrategy {
   /**
    * ファイル内のFetch呼び出しからエンドポイントを検出
    */
-  protected performDetection(sourceFile: SourceFile, context: DetectionContext): EndpointInfo[] {
+  protected performDetection(sourceFile: ISourceFile, context: DetectionContext): EndpointInfo[] {
     logger.debug(`[${this.name}] 検出開始: ${sourceFile.getFilePath()}`);
 
     // 各検出器を順番に実行

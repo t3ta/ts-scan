@@ -5,20 +5,21 @@
  * builder.query()やbuilder.mutation()形式の定義を解析します。
  */
 
-import { Node, SourceFile, SyntaxKind } from 'ts-morph';
+// ts-morphの直接インポートを避け、抽象インターフェースのみを使用するのだ
+import { INode, NodeKind } from '../../../core/ast/interfaces/INode';
 import { 
   DetectionContext, 
-  EndpointInfo,
-  EndpointPatternDetector
+  EndpointInfo
 } from '../../../types';
 import { logger } from '../../../utils/Logger';
-import { NodePredicates } from '../../../utils/ast/NodePredicates';
 import { RtkQueryApiParser } from '../parsers/RtkQueryApiParser';
+import { BasePatternDetector } from '../../common/PatternDetector';
 
 /**
  * エンドポイント定義検出クラス
  */
-export class EndpointDefinitionDetector implements EndpointPatternDetector {
+export class EndpointDefinitionDetector extends BasePatternDetector {
+  readonly patternName = 'EndpointDefinition';
   private apiParser: RtkQueryApiParser;
 
   /**
@@ -26,6 +27,7 @@ export class EndpointDefinitionDetector implements EndpointPatternDetector {
    * @param apiParser RTK Query API解析インスタンス
    */
   constructor(apiParser: RtkQueryApiParser) {
+    super();
     this.apiParser = apiParser;
   }
 
@@ -34,22 +36,20 @@ export class EndpointDefinitionDetector implements EndpointPatternDetector {
    * @param node 対象ノード
    * @returns パターンが適用可能かどうか
    */
-  public canHandle(node: Node): boolean {
+  public canHandle(node: INode): boolean {
     // エンドポイントビルダーのquery/mutationメソッド呼び出しを検出
     // 例: builder.query({ ... }) または builder.mutation({ ... })
-    if (!node.isKind(SyntaxKind.PropertyAccessExpression)) {
+    if (!node.isKind(NodeKind.PropertyAccessExpression)) {
       return false;
     }
     
     const propAccess = node;
-    const propName = propAccess.getName();
+    const propName = (propAccess as any).getName?.();
     
     if (propName !== 'query' && propName !== 'mutation') {
       return false;
     }
     
-    const objExpr = propAccess.getExpression();
-    // builderパラメータ名は様々なので、正確な判定は難しい
     // endpoints関数内のPropertyAccessExpressionであることを条件とする
     const isInEndpointsFunction = this.isNodeInEndpointsFunction(node);
     
@@ -61,20 +61,24 @@ export class EndpointDefinitionDetector implements EndpointPatternDetector {
    * @param node 対象ノード
    * @returns endpoints関数内に存在するならtrue
    */
-  private isNodeInEndpointsFunction(node: Node): boolean {
-    // 親の関数を検索
-    const arrowFunc = node.getFirstAncestorByKind(SyntaxKind.ArrowFunction);
+  private isNodeInEndpointsFunction(node: INode): boolean {
+    // getAncestorsメソッドを使って親を検索
+    const ancestors = node.getAncestors?.() || [];
+    
+    // ArrowFunctionを探す
+    const arrowFunc = ancestors.find(n => n.isKind(NodeKind.ArrowFunction));
     if (!arrowFunc) {
       return false;
     }
     
-    // その関数の親がendpointsプロパティに割り当てられているか
-    const propAssign = arrowFunc.getFirstAncestorByKind(SyntaxKind.PropertyAssignment);
+    // PropertyAssignmentを探す
+    const propAssign = ancestors.find(n => n.isKind(NodeKind.PropertyAssignment));
     if (!propAssign) {
       return false;
     }
     
-    return propAssign.getName() === 'endpoints';
+    // propertyAssignmentのnameが'endpoints'か確認
+    return (propAssign as any).getName?.() === 'endpoints';
   }
 
   /**
@@ -83,7 +87,7 @@ export class EndpointDefinitionDetector implements EndpointPatternDetector {
    * @param context 検出コンテキスト
    * @returns 抽出されたエンドポイント情報配列
    */
-  public extractEndpoints(node: Node, context: DetectionContext): EndpointInfo[] {
+  public extractEndpoints(node: INode, context: DetectionContext): EndpointInfo[] {
     logger.debug(`[EndpointDefinitionDetector] エンドポイント定義からエンドポイント抽出開始`);
     
     try {

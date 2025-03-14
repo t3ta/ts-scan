@@ -5,7 +5,9 @@
  * endpointsプロパティに定義されたエンドポイントビルダーを解析します。
  */
 
-import { Node, SourceFile } from 'ts-morph';
+// ts-morphの直接インポートを避け、抽象インターフェースのみを使用するのだ
+import { INode } from '../../../core/ast/interfaces/INode';
+import { ISourceFile } from '../../../core/ast/interfaces/ISourceFile';
 import { 
   DetectionContext, 
   EndpointInfo,
@@ -14,11 +16,13 @@ import {
 import { logger } from '../../../utils/Logger';
 import { NodePredicates } from '../../../utils/ast/NodePredicates';
 import { RtkQueryApiParser } from '../parsers/RtkQueryApiParser';
+import { BasePatternDetector } from '../../common/PatternDetector';
 
 /**
  * createApi呼び出し検出クラス
  */
-export class CreateApiCallDetector implements EndpointPatternDetector {
+export class CreateApiCallDetector extends BasePatternDetector {
+  readonly patternName = 'CreateApiCall';
   private apiParser: RtkQueryApiParser;
 
   /**
@@ -26,6 +30,7 @@ export class CreateApiCallDetector implements EndpointPatternDetector {
    * @param apiParser RTK Query API解析インスタンス
    */
   constructor(apiParser: RtkQueryApiParser) {
+    super();
     this.apiParser = apiParser;
   }
 
@@ -34,8 +39,8 @@ export class CreateApiCallDetector implements EndpointPatternDetector {
    * @param node 対象ノード
    * @returns パターンが適用可能かどうか
    */
-  public canHandle(node: Node): boolean {
-    return NodePredicates.isCreateApiCallExpression(node);
+  public canHandle(node: INode): boolean {
+    return NodePredicates.isCreateApiCallExpression(node as any);
   }
 
   /**
@@ -44,12 +49,12 @@ export class CreateApiCallDetector implements EndpointPatternDetector {
    * @param context 検出コンテキスト
    * @returns 抽出されたエンドポイント情報配列
    */
-  public extractEndpoints(node: Node, context: DetectionContext): EndpointInfo[] {
+  public extractEndpoints(node: INode, context: DetectionContext): EndpointInfo[] {
     logger.debug(`[CreateApiCallDetector] createApi呼び出しからエンドポイント抽出開始`);
     
     try {
       // createApi呼び出しを解析してAPIメタデータを構築
-      this.apiParser.parseCreateApiCall(node, context.sourceFile, context);
+      this.apiParser.parseCreateApiCall(node as any, context.sourceFile as any, context);
       
       // この段階では直接エンドポイント情報は返さない
       // エンドポイント使用箇所の検出で利用するためのメタデータを構築するだけ

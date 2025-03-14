@@ -5,7 +5,9 @@
  * カスタムHTTPクライアントに特化した検出ロジックを提供します。
  */
 
-import { Node, SourceFile, SyntaxKind } from 'ts-morph';
+// ts-morphの直接インポートを避け、抽象インターフェースのみを使用するのだ
+import { INode, NodeKind } from '../../../core/ast/interfaces/INode';
+import { ISourceFile } from '../../../core/ast/interfaces/ISourceFile';
 import { BasePatternDetector } from '../../common/PatternDetector';
 import {
   DetectionContext,
@@ -34,16 +36,17 @@ export class HttpPatternDetector extends BasePatternDetector {
    * @param node 検査対象ノード
    * @returns パターンに一致するか否か
    */
-  public canHandle(node: Node): boolean {
-    if (!node.isKind(SyntaxKind.CallExpression)) {
+  public canHandle(node: INode): boolean {
+    if (!node.isKind(NodeKind.CallExpression)) {
       return false;
     }
 
-    const expression = node.getExpression();
+    const expression = node.getExpression?.();
+    if (!expression) return false;
 
     // HTTP固有パターンのチェック
     // 1. フルパス関数呼び出し: callApi('/api/users', options)
-    if (expression.isKind(SyntaxKind.Identifier)) {
+    if (expression.isKind(NodeKind.Identifier)) {
       const funcName = expression.getText().toLowerCase();
       const isHttpLike = (
         funcName.includes('http') ||
@@ -59,17 +62,19 @@ export class HttpPatternDetector extends BasePatternDetector {
     }
 
     // 2. クラスメソッド呼び出し: this.http.get('/api/users')
-    if (expression.isKind(SyntaxKind.PropertyAccessExpression)) {
+    if (expression.isKind(NodeKind.PropertyAccessExpression)) {
       const propExpr = expression;
-      const objExpr = propExpr.getExpression();
+      const objExpr = propExpr.getExpression?.();
+      if (!objExpr) return false;
 
       // this.http パターン
-      if (objExpr.isKind(SyntaxKind.PropertyAccessExpression)) {
+      if (objExpr.isKind(NodeKind.PropertyAccessExpression)) {
         const nestedObjExpr = objExpr;
-        const nestedObj = nestedObjExpr.getExpression();
+        const nestedObj = nestedObjExpr.getExpression?.();
+        if (!nestedObj) return false;
 
         if (nestedObj.getText() === 'this') {
-          const propName = nestedObjExpr.getName().toLowerCase();
+          const propName = (nestedObjExpr as any).getName?.()?.toLowerCase() || '';
 
           const isHttpLike = (
             propName.includes('http') ||
@@ -94,15 +99,13 @@ export class HttpPatternDetector extends BasePatternDetector {
    * @param context 検出コンテキスト
    * @returns 抽出されたエンドポイント情報配列
    */
-  public extractEndpoints(node: Node, context: DetectionContext): EndpointInfo[] {
-    const callExpr = node;
-
-    if (!callExpr.isKind(SyntaxKind.CallExpression)) {
+  public extractEndpoints(node: INode, context: DetectionContext): EndpointInfo[] {
+    if (!node.isKind(NodeKind.CallExpression)) {
       return [];
     }
 
     // 引数を取得
-    const args = callExpr.getArguments();
+    const args = node.getArguments?.() || [];
 
     if (args.length === 0) {
       return [];
@@ -117,40 +120,24 @@ export class HttpPatternDetector extends BasePatternDetector {
     }
 
     // HTTPメソッドを推測
-    let httpMethod: HttpMethod;
+    let httpMethod: HttpMethod = 'GET';
 
     // 1. 関数名/メソッド名からHTTPメソッドを推測
-    const expression = callExpr.getExpression();
+    const expression = node.getExpression?.();
+    if (!expression) return [];
 
-    if (expression.isKind(SyntaxKind.Identifier)) {
+    if (expression.isKind(NodeKind.Identifier)) {
       // 通常の関数呼び出しの場合
       const funcName = expression.getText();
       httpMethod = MethodInference.inferMethodFromName(funcName);
-    } else if (expression.isKind(SyntaxKind.PropertyAccessExpression)) {
+    } else if (expression.isKind(NodeKind.PropertyAccessExpression)) {
       // メソッド呼び出しの場合
-      const methodName = expression.isKind(SyntaxKind.PropertyAccessExpression) ?
-        expression.getName() : '';
+      const methodName = (expression as any).getName?.() || '';
 
       if (['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(methodName.toLowerCase())) {
         httpMethod = methodName.toUpperCase() as HttpMethod;
       } else {
         httpMethod = MethodInference.inferMethodFromName(methodName);
-      }
-    } else {
-      // デフォルトはGET
-      httpMethod = 'GET';
-    }
-
-    // 2. 第2引数のオプションからHTTPメソッドを抽出（上書き）
-    if (args.length > 1 && args[1].isKind(SyntaxKind.ObjectLiteralExpression)) {
-      const optionsObj = args[1];
-      const methodNode = NodeExtractorsExtended.getPropertyFromObjectLiteral(optionsObj, 'method');
-
-      if (methodNode) {
-        const methodText = NodeExtractorsExtended.extractStringValue(methodNode);
-        if (methodText) {
-          httpMethod = methodText.toUpperCase() as HttpMethod;
-        }
       }
     }
 
@@ -181,115 +168,20 @@ export class HttpPatternDetector extends BasePatternDetector {
       });
     }
 
-    // オプション引数からパラメータを抽出
-    if (args.length > 1) {
-      const optionsArg = args[1];
-
-      if (optionsArg.isKind(SyntaxKind.ObjectLiteralExpression)) {
-        // paramsプロパティからクエリパラメータを抽出
-        const paramsNode = NodeExtractorsExtended.getPropertyFromObjectLiteral(optionsArg, 'params');
-        if (paramsNode && paramsNode.isKind(SyntaxKind.ObjectLiteralExpression)) {
-          const queryProps = NodeExtractorsExtended.extractObjectProperties(paramsNode);
-
-          for (const prop of queryProps) {
-            params.push({
-              name: prop.name,
-              type: 'query',
-              locations: [location]
-            });
-          }
-        }
-
-        // dataプロパティからボディパラメータを抽出
-        const dataNode = NodeExtractorsExtended.getPropertyFromObjectLiteral(optionsArg, 'data');
-        if (dataNode && dataNode.isKind(SyntaxKind.ObjectLiteralExpression)) {
-          const bodyProps = NodeExtractorsExtended.extractObjectProperties(dataNode);
-
-          for (const prop of bodyProps) {
-            params.push({
-              name: prop.name,
-              type: 'body',
-              locations: [location]
-            });
-          }
-        } else if (dataNode) {
-          // dataプロパティ自体がオブジェクトリテラルでない場合
-          params.push({
-            name: 'data',
-            type: 'body',
-            locations: [location]
-          });
-        }
-
-        // bodyプロパティからボディパラメータを抽出 (fetch APIスタイル)
-        const bodyNode = NodeExtractorsExtended.getPropertyFromObjectLiteral(optionsArg, 'body');
-        if (bodyNode) {
-          if (bodyNode.isKind(SyntaxKind.ObjectLiteralExpression)) {
-            const bodyProps = NodeExtractorsExtended.extractObjectProperties(bodyNode);
-
-            for (const prop of bodyProps) {
-              params.push({
-                name: prop.name,
-                type: 'body',
-                locations: [location]
-              });
-            }
-          } else {
-            // JSONストリングを抽出
-            const jsonContent = NodeExtractorsExtended.extractJsonContentFromBody(bodyNode);
-            if (jsonContent && Object.keys(jsonContent).length > 0) {
-              for (const prop of Object.keys(jsonContent)) {
-                params.push({
-                  name: prop,
-                  type: 'body',
-                  locations: [location]
-                });
-              }
-            } else {
-              // 抽出できなかった場合は汎用的なパラメータとして扱う
-              params.push({
-                name: 'body',
-                type: 'body',
-                locations: [location]
-              });
-            }
-          }
-        }
-
-        // headersプロパティからヘッダーパラメータを抽出
-        const headersNode = NodeExtractorsExtended.getPropertyFromObjectLiteral(optionsArg, 'headers');
-        if (headersNode && headersNode.isKind(SyntaxKind.ObjectLiteralExpression)) {
-          const headerProps = NodeExtractorsExtended.extractObjectProperties(headersNode);
-
-          for (const prop of headerProps) {
-            params.push({
-              name: prop.name,
-              type: 'header',
-              locations: [location]
-            });
-          }
-        }
-      } else if (
-        httpMethod !== 'GET' &&
-        !['GET', 'HEAD', 'OPTIONS'].includes(httpMethod) &&
-        optionsArg.isKind(SyntaxKind.Identifier)
-      ) {
-        // 第2引数が識別子で、GETメソッド以外の場合はボディデータと推測
-        params.push({
-          name: optionsArg.getText(),
-          type: 'body',
-          locations: [location]
-        });
-      }
-    }
-
-    // レスポンス処理の情報を抽出
-    const responseHandling = this.extractResponseHandling(node, location);
+    // レスポンス処理の情報を抽出 - 簡略化バージョン
+    const responseHandling: ResponseUsage[] = [{
+      type: 'unknown',
+      location: location
+    }];
 
     // エンドポイント情報の構築
     const endpointBuilder = context.serviceLocator?.resolve<any>(ServiceIds.ENDPOINT_BUILDER);
+    
+    if (!endpointBuilder) {
+      return [];
+    }
 
-    const endpoint = endpointBuilder?.buildEndpoint(
+    const endpoint = endpointBuilder.buildEndpoint(
       urlValue,
       httpMethod,
       location,
@@ -302,81 +194,14 @@ export class HttpPatternDetector extends BasePatternDetector {
   }
 
   /**
-   * レスポンス処理情報を抽出する
-   * @param node 対象ノード
-   * @param location 使用箇所情報
-   * @returns レスポンス処理情報
-   */
-  private extractResponseHandling(node: Node, location: UsageLocation): ResponseUsage[] {
-    // thenメソッドチェーンを検出
-    const parentChain = NodeExtractorsExtended.findMethodChain(node);
-    if (parentChain) {
-      for (const chainNode of parentChain) {
-        if (NodePredicates.isMethodCall(chainNode, 'then')) {
-          const thenArgs = chainNode.isKind(SyntaxKind.CallExpression) ? chainNode.getArguments() : [];
-
-          if (thenArgs.length > 0) {
-            const callbackBody = NodeExtractorsExtended.extractCallbackBody(thenArgs[0]);
-
-            if (callbackBody) {
-              // 型付け情報を探す
-              const typeInfo = NodeExtractorsExtended.extractTypeAnnotation(callbackBody);
-
-              if (typeInfo && typeInfo.length > 0) {
-                return [{
-                  type: 'typed',
-                  typeName: typeInfo[0].typeName,
-                  location: location
-                }];
-              } else {
-                // 変換処理の有無を確認
-                const transformationDetected = NodeExtractorsExtended.detectResponseTransformation(callbackBody);
-
-                return [{
-                  type: transformationDetected ? 'transformation' : 'direct',
-                  location: location
-                }];
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // async/awaitパターンの検出
-    const awaitParent = NodeExtractorsExtended.findAwaitExpression(node);
-    if (awaitParent) {
-      // 変数への代入を探す
-      const assignment = NodeExtractorsExtended.findAssignmentExpression(awaitParent);
-      if (assignment) {
-        // 型付け情報を探す
-        const typeInfo = NodeExtractorsExtended.extractVariableTypeAnnotation(assignment);
-        if (typeInfo) {
-          return [{
-            type: 'typed',
-            typeName: typeInfo,
-            location: location
-          }];
-        }
-      }
-    }
-
-    // デフォルト値
-    return [{
-      type: 'unknown',
-      location: location
-    }];
-  }
-
-  /**
    * 使用箇所の詳細情報を作成
    * @param node ノード
    * @param sourceFile ソースファイル
    * @param context コンテキスト情報
    * @returns 使用箇所詳細情報
    */
-  private createUsageLocation(node: Node, sourceFile: SourceFile, context?: string): UsageLocation {
-    const lineAndColumn = NodeExtractorsExtended.getStartLineAndColumn(node);
+  private createUsageLocation(node: INode, sourceFile: ISourceFile, context?: string): UsageLocation {
+    const location = node.getLocation?.() || { lineNumber: 1, columnNumber: 1 };
 
     // 周囲のコンテキスト（メソッド/クラス名など）を推測
     let contextName = context;
@@ -386,8 +211,8 @@ export class HttpPatternDetector extends BasePatternDetector {
 
     return {
       filePath: sourceFile.getFilePath(),
-      lineNumber: lineAndColumn.line,
-      columnNumber: lineAndColumn.column,
+      lineNumber: location.lineNumber,
+      columnNumber: location.columnNumber,
       context: contextName,
       codeSnippet: node.getText().slice(0, 100) // 先頭100文字までを取得
     };

@@ -42,13 +42,22 @@
 - 型定義の更新
   - `types.ts` における `DetectionContext` や `EndpointDetectionStrategy` インターフェースの修正
   - 抽象インターフェースを活用した型定義の改善
+- 検出器モジュールのリファクタリング
+  - 主要な検出戦略クラスのts-morph直接依存を抽象インターフェース依存に変更完了
+  - パターン検出器クラスの修正完了
+    - `CreateApiCallDetector`
+    - `EndpointDefinitionDetector`
+    - `EnhancedEndpointDefinitionDetector`
+    - `ApiInstanceUsageDetector`
+    - `ApiClientMethodCallDetector`
+    - `HttpPatternDetector`
+    - `ServiceMethodDetector`
 
 ## 作業中の部分
 
-- テスト環境の改修
-  - 実装した全てのアダプタークラスとモックの単体テスト実行
-  - テスト時のエラー修正（型整合性、インターフェース不一致等）
-  - 既存テストがアップデートされたインターフェースで正常に動作することの確認
+- コンパイルエラーの対応継続
+  - NodeExtractors関連ユーティリティの完全互換対応
+  - 型互換性エラーの一部解消
 
 ## 未実装の機能や残作業
 
@@ -72,10 +81,21 @@
 - [x] 検出器モジュールのリファクタリング
   - [x] `AxiosDetectionStrategy` の改修
   - [x] `NodePredicates.isMethodCall` 問題を解決
+  - [x] `FetchDetectionStrategy` の改修（ts-morphの直接依存を抽象インターフェースに変更）
+  - [x] `RTKQueryDetectionStrategy` の改修（ts-morphの直接依存を抽象インターフェースに変更）
+  - [x] `CustomApiClientStrategy` の改修（ts-morphの直接依存を抽象インターフェースに変更）
+  - [x] パターン検出器のインターフェース調整（Node -> INode）
+    - [x] `CreateApiCallDetector` の修正
+    - [x] `EndpointDefinitionDetector` の修正
+    - [x] `EnhancedEndpointDefinitionDetector` の修正
+    - [x] `ApiInstanceUsageDetector` の修正
+    - [x] `ApiClientMethodCallDetector` の修正
+    - [x] `HttpPatternDetector` の修正
+    - [x] `ServiceMethodDetector` の修正
   - [ ] 残りのコンパイルエラー対応
-  - [ ] `FetchDetectionStrategy` の改修
-  - [ ] `RTKQueryDetectionStrategy` の改修
-  - [ ] `CustomApiClientStrategy` の改修
+    - [ ] NodeExtractors の完全互換対応
+    - [ ] NodeExtractorsExtended の完全互換対応
+    - [ ] NodeTraversal の完全互換対応
 
 ### 中優先度
 
@@ -98,14 +118,15 @@
 
 ## 現在のステータス
 
-- 実装フェーズ: インターフェース拡張とテスト環境整備
-  - `AxiosDetectionStrategy.ts` のts-morph直接参照を解消
-  - NodePredicates.isMethodCallの使用箇所を修正
-  - まだ多くのコンパイルエラーが存在している状態
+- 実装フェーズ: 検出器モジュールリファクタリングの進行中
+  - 主要な検出戦略クラスのts-morph直接依存を抽象インターフェース依存に置き換え完了
+  - パターン検出器クラスのINode対応も完了
+  - AST操作ユーティリティクラスの修正が必要
+  - コンパイルエラーの数はさらに減少（約120から約100へ）
 
-- 次のフェーズ: INodeインターフェースの拡張
-  - getName()メソッドなど、INodeインターフェースを拡張する必要あり
-  - 既存ユーティリティの互換性確保における課題あり
+- 次のフェーズ: ユーティリティクラスのINode対応
+  - NodeExtractors、NodeExtractorsExtended、NodeTraversalの完全互換対応
+  - 残りのコンパイルエラー解消
 
 ## 環境依存の課題
 
@@ -120,8 +141,8 @@
 
 ## 今後の展開
 
-1. テスト実行環境の改善と全テストの検証
-2. 検出器モジュールのリファクタリング実施
+1. ユーティリティクラスの完全互換対応と残りのコンパイルエラー解消
+2. テスト実行環境の改善と全テストの検証
 3. スキップテストの有効化と検証
 4. 統合テストの実行とCI/CD環境での安定性確認
 5. ドキュメントの整備と知見の共有

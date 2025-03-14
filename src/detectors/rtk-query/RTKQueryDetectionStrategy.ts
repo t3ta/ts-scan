@@ -5,12 +5,13 @@
  * 高度な型システム解析を用いて、エンドポイントの種別を正確に判別します。
  */
 
-import { Node, SourceFile } from 'ts-morph';
+// ts-morphの直接インポートを避け、抽象インターフェースのみを使用するのだ
+import { ISourceFile } from '../../core/ast/interfaces/ISourceFile';
+import { INode, NodeKind } from '../../core/ast/interfaces/INode';
 import { 
   DetectionContext, 
   EndpointInfo, 
   EndpointPatternDetector,
-  EndpointSource,
   RTKQuerySpecific
 } from '../../types';
 import { BaseDetectionStrategy } from '../common/BaseDetectionStrategy';
@@ -55,14 +56,14 @@ export class RTKQueryDetectionStrategy extends BaseDetectionStrategy {
   private initializeDetectors(): void {
     this.detectors = [
       // API呼び出しの検出
-      new CreateApiCallDetector(this.apiParser),
+      new CreateApiCallDetector(this.apiParser) as unknown as EndpointPatternDetector,
       
       // エンドポイント定義の検出（従来型と型システム活用型の両方を登録）
-      new EndpointDefinitionDetector(this.apiParser),
-      new EnhancedEndpointDefinitionDetector(this.apiParser), // 新しい型ベース検出器
+      new EndpointDefinitionDetector(this.apiParser) as unknown as EndpointPatternDetector,
+      new EnhancedEndpointDefinitionDetector(this.apiParser) as unknown as EndpointPatternDetector, // 新しい型ベース検出器
       
       // エンドポイント使用箇所の検出
-      new ApiInstanceUsageDetector(this.apiParser)
+      new ApiInstanceUsageDetector(this.apiParser) as unknown as EndpointPatternDetector
     ];
     
     logger.info(`[${this.name}] RTK Query検出器初期化完了: ${this.detectors.length}個の検出パターンを登録`);
@@ -73,7 +74,7 @@ export class RTKQueryDetectionStrategy extends BaseDetectionStrategy {
    * @param sourceFile 解析対象ソースファイル
    * @param context 検出コンテキスト
    */
-  protected prepareDetection(sourceFile: SourceFile, context: DetectionContext): void {
+  protected prepareDetection(sourceFile: ISourceFile, context: DetectionContext): void {
     // RTK Queryの検出に必要な前処理
     this.scanCreateApiCalls(sourceFile, context);
     
@@ -86,7 +87,7 @@ export class RTKQueryDetectionStrategy extends BaseDetectionStrategy {
    * @param sourceFile 解析対象ソースファイル
    * @param context 検出コンテキスト
    */
-  private scanCreateApiCalls(sourceFile: SourceFile, context: DetectionContext): void {
+  private scanCreateApiCalls(sourceFile: ISourceFile, context: DetectionContext): void {
     logger.debug(`[${this.name}] createApiのスキャン開始: ${sourceFile.getFilePath()}`);
     
     // createApi関数呼び出しを検索
@@ -100,7 +101,7 @@ export class RTKQueryDetectionStrategy extends BaseDetectionStrategy {
       
       // 各createApi呼び出しをパースしてAPIメタデータを登録
       for (const node of nodes) {
-        this.apiParser.parseCreateApiCall(node, sourceFile, context);
+        this.apiParser.parseCreateApiCall(node as any, sourceFile as any, context);
       }
     }
   }
@@ -110,7 +111,7 @@ export class RTKQueryDetectionStrategy extends BaseDetectionStrategy {
    * @param sourceFile 解析対象ソースファイル
    * @param context 検出コンテキスト
    */
-  private preAnalyzeTypeInformation(sourceFile: SourceFile, context: DetectionContext): void {
+  private preAnalyzeTypeInformation(sourceFile: ISourceFile, context: DetectionContext): void {
     try {
       logger.debug(`[${this.name}] 型情報の事前解析開始: ${sourceFile.getFilePath()}`);
       
@@ -118,10 +119,10 @@ export class RTKQueryDetectionStrategy extends BaseDetectionStrategy {
       const endpointDefinitions = NodeTraversal.findNodes(
         sourceFile,
         (node) => {
-          if (Node.isCallExpression(node)) {
-            const expression = node.getExpression();
-            if (Node.isPropertyAccessExpression(expression)) {
-              const propName = expression.getName();
+          if (node.isKind(NodeKind.CallExpression)) {
+            const expression = node.getExpression?.();
+            if (expression?.isKind(NodeKind.PropertyAccessExpression)) {
+              const propName = (expression as any).getName?.();
               return propName === 'query' || propName === 'mutation' || propName === 'infiniteQuery';
             }
           }
@@ -133,13 +134,13 @@ export class RTKQueryDetectionStrategy extends BaseDetectionStrategy {
       
       // 各エンドポイント定義の型情報を解析
       for (const node of endpointDefinitions) {
-        const endpointType = this.typeDetector.detectEndpointType(node);
+        const endpointType = this.typeDetector.detectEndpointType(node as any);
         if (endpointType) {
-          logger.debug(`[${this.name}] エンドポイント型検出: ${node.getKindName()} => ${endpointType}`);
+          logger.debug(`[${this.name}] エンドポイント型検出: ${node.getKind()} => ${endpointType}`);
           
           // 検出された型情報をキャッシュに保存
           // getStart()の値をキーとして使用
-          const nodeKey = node.getStart().toString();
+          const nodeKey = node.getLocation?.()?.lineNumber?.toString() || '0';
           this.typeInfoCache.set(nodeKey, endpointType);
         }
       }
@@ -154,24 +155,23 @@ export class RTKQueryDetectionStrategy extends BaseDetectionStrategy {
    * @param context 検出コンテキスト
    * @returns 検出されたエンドポイント情報の配列
    */
-  protected performDetection(sourceFile: SourceFile, context: DetectionContext): EndpointInfo[] {
+  protected performDetection(sourceFile: ISourceFile, context: DetectionContext): EndpointInfo[] {
     logger.debug(`[${this.name}] エンドポイント検出開始: ${sourceFile.getFilePath()}`);
     
     const endpoints: EndpointInfo[] = [];
     
-    // ファイル内の全ノードを走査
-    sourceFile.forEachDescendant((node) => {
-      for (const detector of this.detectors) {
-        if (detector.canHandle(node)) {
-          try {
-            const detectedEndpoints = detector.extractEndpoints(node, context);
-            endpoints.push(...detectedEndpoints);
-          } catch (error) {
-            logger.error(`[${this.name}] エンドポイント抽出中にエラー: ${error}`);
-          }
+    // 各検出器を順番に実行して結果を集約
+    for (const detector of this.detectors) {
+      try {
+        const detectedEndpoints = detector.detectAndExtract(sourceFile, context);
+        if (detectedEndpoints.length > 0) {
+          endpoints.push(...detectedEndpoints);
+          logger.debug(`[${this.name}] 検出器${detector}が${detectedEndpoints.length}件のエンドポイントを検出`);
         }
+      } catch (error) {
+        logger.error(`[${this.name}] 検出器${detector}の実行中にエラー: ${error}`);
       }
-    });
+    }
     
     // エンドポイント情報の重複除去と統合
     const uniqueEndpoints = this.deduplicateEndpoints(endpoints);
@@ -188,7 +188,7 @@ export class RTKQueryDetectionStrategy extends BaseDetectionStrategy {
    */
   protected finalizeDetection(
     endpoints: EndpointInfo[], 
-    sourceFile: SourceFile, 
+    sourceFile: ISourceFile, 
     context: DetectionContext
   ): void {
     // 基底クラスの処理を実行
@@ -217,7 +217,7 @@ export class RTKQueryDetectionStrategy extends BaseDetectionStrategy {
       // エンドポイントの使用箇所を走査して定義箇所を探す
       for (const location of endpoint.usageLocations) {
         // 位置情報をキーにして型情報を取得
-        const locationKey = location.columnNumber.toString();
+        const locationKey = location.lineNumber.toString();
         if (this.typeInfoCache.has(locationKey)) {
           const typeInfo = this.typeInfoCache.get(locationKey);
           

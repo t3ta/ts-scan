@@ -5,7 +5,9 @@
  * エンドポイント情報を抽出します。リポジトリパターンなどの一般的なパターンに対応します。
  */
 
-import { Node, SourceFile, SyntaxKind } from 'ts-morph';
+// ts-morphの直接インポートを避け、抽象インターフェースのみを使用するのだ
+import { INode, NodeKind } from '../../../core/ast/interfaces/INode';
+import { ISourceFile } from '../../../core/ast/interfaces/ISourceFile';
 import { BasePatternDetector } from '../../common/PatternDetector';
 import { 
   DetectionContext, 
@@ -35,18 +37,20 @@ export class ServiceMethodDetector extends BasePatternDetector {
    * @param node 検査対象ノード
    * @returns パターンに一致するか否か
    */
-  public canHandle(node: Node): boolean {
-    if (!node.isKind(SyntaxKind.CallExpression)) {
+  public canHandle(node: INode): boolean {
+    if (!node.isKind(NodeKind.CallExpression)) {
       return false;
     }
     
-    const expression = node.getExpression();
-    if (!expression.isKind(SyntaxKind.PropertyAccessExpression)) {
+    const expression = node.getExpression?.();
+    if (!expression || !expression.isKind(NodeKind.PropertyAccessExpression)) {
       return false;
     }
     
-    const objExpr = expression.getExpression();
-    const methodName = expression.getName();
+    const objExpr = expression.getExpression?.();
+    if (!objExpr) return false;
+
+    const methodName = (expression as any).getName?.() || '';
     
     // オブジェクト名がサービスっぽいかチェック
     const objName = objExpr.getText().toLowerCase();
@@ -85,32 +89,28 @@ export class ServiceMethodDetector extends BasePatternDetector {
    * @param context 検出コンテキスト
    * @returns 抽出されたエンドポイント情報配列
    */
-  public extractEndpoints(node: Node, context: DetectionContext): EndpointInfo[] {
-    const callExpr = node;
-    // ノードが CallExpression であることを確認してから getExpression を呼び出す
-    const propExpr = callExpr.isKind(SyntaxKind.CallExpression) ? callExpr.getExpression() : undefined;
+  public extractEndpoints(node: INode, context: DetectionContext): EndpointInfo[] {
+    if (!node.isKind(NodeKind.CallExpression)) {
+      return [];
+    }
     
-    if (!propExpr || !propExpr.isKind(SyntaxKind.PropertyAccessExpression)) {
+    const expression = node.getExpression?.();
+    if (!expression || !expression.isKind(NodeKind.PropertyAccessExpression)) {
       return [];
     }
     
     // オブジェクト名とメソッド名を取得
-    const objExpr = propExpr.getExpression();
-    const methodName = propExpr.getName();
+    const objExpr = expression.getExpression?.();
+    if (!objExpr) return [];
+
+    const methodName = (expression as any).getName?.() || '';
     const objName = objExpr.getText();
     
     // 引数を取得
-    const args = callExpr.isKind(SyntaxKind.CallExpression) ? callExpr.getArguments() : [];
+    const args = node.getArguments?.() || [];
     
-    // メソッド定義を探して調査
-    const methodDecl = this.findMethodDefinition(context.sourceFile, objName, methodName);
-    if (!methodDecl) {
-      // メソッド名からリソース名とHTTPメソッドを推測する簡易ケース
-      return this.extractEndpointFromMethodName(node, methodName, args, context);
-    }
-    
-    // メソッド定義を解析してエンドポイントを抽出
-    return this.extractEndpointFromMethodDefinition(node, methodDecl, args, context);
+    // メソッド名からリソース名とHTTPメソッドを推測
+    return this.extractEndpointFromMethodName(node, methodName, args, context);
   }
   
   /**
@@ -122,9 +122,9 @@ export class ServiceMethodDetector extends BasePatternDetector {
    * @returns 抽出されたエンドポイント情報配列
    */
   private extractEndpointFromMethodName(
-    node: Node,
+    node: INode,
     methodName: string,
-    args: Node[],
+    args: INode[],
     context: DetectionContext
   ): EndpointInfo[] {
     // HTTPメソッドを推測
@@ -161,7 +161,7 @@ export class ServiceMethodDetector extends BasePatternDetector {
     
     // 引数があればIDパラメータとして扱う
     if (args.length > 0 && httpMethod !== 'POST') {
-      if (args[0].isKind(SyntaxKind.StringLiteral) || args[0].isKind(SyntaxKind.NumericLiteral)) {
+      if (args[0].isKind(NodeKind.StringLiteral) || args[0].isKind(NodeKind.NumericLiteral)) {
         urlValue += '/:id';
       }
     }
@@ -186,13 +186,13 @@ export class ServiceMethodDetector extends BasePatternDetector {
     // 引数からパラメータを抽出
     if (args.length > 0) {
       // 最初の引数がIDの場合
-      if (httpMethod !== 'POST' && (args[0].isKind(SyntaxKind.StringLiteral) || args[0].isKind(SyntaxKind.NumericLiteral))) {
+      if (httpMethod !== 'POST' && (args[0].isKind(NodeKind.StringLiteral) || args[0].isKind(NodeKind.NumericLiteral))) {
         // すでにパスパラメータとして追加済み
       }
       // オブジェクトリテラルの引数がある場合
-      else if (args.some(arg => arg.isKind(SyntaxKind.ObjectLiteralExpression))) {
-        const objArg = args.find(arg => arg.isKind(SyntaxKind.ObjectLiteralExpression));
-        if (objArg && objArg.isKind(SyntaxKind.ObjectLiteralExpression)) {
+      else if (args.some(arg => arg.isKind(NodeKind.ObjectLiteralExpression))) {
+        const objArg = args.find(arg => arg.isKind(NodeKind.ObjectLiteralExpression));
+        if (objArg && objArg.isKind(NodeKind.ObjectLiteralExpression)) {
           const objProps = NodeExtractorsExtended.extractObjectProperties(objArg);
           
           // POSTやPUTの場合はボディパラメータ、GETの場合はクエリパラメータとして扱う
@@ -209,402 +209,29 @@ export class ServiceMethodDetector extends BasePatternDetector {
       }
     }
     
-    // レスポンス処理の情報を抽出
-    let responseHandling: ResponseUsage[] = [{
+    // レスポンス処理の情報
+    const responseHandling: ResponseUsage[] = [{
       type: 'unknown',
       location: location
     }];
     
-    // thenメソッドチェーンを検出
-    const parentChain = NodeExtractorsExtended.findMethodChain(node);
-    if (parentChain) {
-      for (const chainNode of parentChain) {
-        if (NodePredicates.isMethodCall(chainNode, 'then')) {
-          const thenArgs = chainNode.isKind(SyntaxKind.CallExpression) ? chainNode.getArguments() : [];
-          
-          if (thenArgs.length > 0) {
-            const callbackBody = NodeExtractorsExtended.extractCallbackBody(thenArgs[0]);
-            
-            if (callbackBody) {
-              // 型付け情報を探す
-              const typeInfo = NodeExtractorsExtended.extractTypeAnnotation(callbackBody);
-              
-              if (typeInfo && typeInfo.length > 0) {
-                responseHandling = [{
-                  type: 'typed',
-                  typeName: typeInfo[0].typeName,
-                  location: location
-                }];
-              }
-            }
-          }
-        }
-      }
-    }
-    
     // エンドポイント情報の構築
     const endpointBuilder = context.serviceLocator?.resolve<EndpointBuilder>(ServiceIds.ENDPOINT_BUILDER);
     
-    const endpoint = endpointBuilder?.buildEndpoint ? endpointBuilder.buildEndpoint(
+    if (!endpointBuilder || !endpointBuilder.buildEndpoint) {
+      return [];
+    }
+    
+    const endpoint = endpointBuilder.buildEndpoint(
       urlValue,
       httpMethod,
       location,
       params,
       responseHandling,
       'custom-client'
-    ) : undefined;
+    );
     
     return endpoint ? [endpoint] : [];
-  }
-  
-  /**
-   * メソッド定義からエンドポイント情報を抽出
-   * @param node 対象ノード
-   * @param methodDecl メソッド定義ノード
-   * @param args 引数配列
-   * @param context 検出コンテキスト
-   * @returns 抽出されたエンドポイント情報配列
-   */
-  private extractEndpointFromMethodDefinition(
-    node: Node,
-    methodDecl: Node,
-    args: Node[],
-    context: DetectionContext
-  ): EndpointInfo[] {
-    // メソッド本体を取得
-    const body = methodDecl.getFirstDescendantByKind(SyntaxKind.Block);
-    if (!body) {
-      return [];
-    }
-    
-    // HTTP呼び出しを探す
-    const httpCalls: { node: Node; method: HttpMethod; url: string | null }[] = [];
-    
-    // fetch呼び出しを探す
-    const fetchCalls = this.findFetchCalls(body);
-    httpCalls.push(...fetchCalls);
-    
-    // axios呼び出しを探す
-    const axiosCalls = this.findAxiosCalls(body);
-    httpCalls.push(...axiosCalls);
-    
-    // HTTP呼び出しが見つかった場合はそれに基づいてエンドポイント情報を構築
-    if (httpCalls.length > 0) {
-      const endpointInfos: EndpointInfo[] = [];
-      
-      for (const httpCall of httpCalls) {
-        const urlValue = httpCall.url;
-        
-        if (!urlValue) {
-          continue;
-        }
-        
-        // 使用箇所情報の作成
-        const location = this.createUsageLocation(node, context.sourceFile);
-        
-        // パラメータの抽出
-        const params: ParameterUsage[] = [];
-        
-        // URLからパスパラメータを抽出
-        const pathParams = NodeExtractorsExtended.extractPathParameters(urlValue);
-        for (const paramName of pathParams) {
-          params.push({
-            name: paramName,
-            type: 'path',
-            required: true,
-            locations: [location]
-          });
-        }
-        
-        // URLからクエリパラメータを抽出
-        const queryParams = NodeExtractorsExtended.extractQueryParameters(urlValue);
-        for (const paramName of queryParams) {
-          params.push({
-            name: paramName,
-            type: 'query',
-            locations: [location]
-          });
-        }
-        
-        // メソッド呼び出しの引数からパラメータを抽出
-        if (httpCall.node.isKind(SyntaxKind.CallExpression)) {
-          const callArgs = httpCall.node.getArguments();
-          
-          // 2番目の引数がオブジェクトリテラルの場合
-          if (callArgs.length > 1 && callArgs[1].isKind(SyntaxKind.ObjectLiteralExpression)) {
-            const configObj = callArgs[1];
-            
-            // GETの場合はparamsプロパティからクエリパラメータを抽出
-            if (httpCall.method === 'GET') {
-              const paramsNode = NodeExtractorsExtended.getPropertyFromObjectLiteral(configObj, 'params');
-              if (paramsNode && paramsNode.isKind(SyntaxKind.ObjectLiteralExpression)) {
-                const paramProps = NodeExtractorsExtended.extractObjectProperties(paramsNode);
-                
-                for (const prop of paramProps) {
-                  params.push({
-                    name: prop.name,
-                    type: 'query',
-                    locations: [location]
-                  });
-                }
-              }
-            } 
-            // POST/PUT/PATCHの場合はdataプロパティからボディパラメータを抽出
-            else if (['POST', 'PUT', 'PATCH'].includes(httpCall.method)) {
-              const dataNode = NodeExtractorsExtended.getPropertyFromObjectLiteral(configObj, 'data');
-              if (dataNode && dataNode.isKind(SyntaxKind.ObjectLiteralExpression)) {
-                const dataProps = NodeExtractorsExtended.extractObjectProperties(dataNode);
-                
-                for (const prop of dataProps) {
-                  params.push({
-                    name: prop.name,
-                    type: 'body',
-                    locations: [location]
-                  });
-                }
-              }
-            }
-          }
-        }
-        
-        // レスポンス処理の情報を抽出
-        const responseHandling = this.extractResponseHandling(node, location);
-        
-        // エンドポイント情報の構築
-        const endpointBuilder = context.serviceLocator?.resolve<EndpointBuilder>(ServiceIds.ENDPOINT_BUILDER);
-        
-        const endpoint = endpointBuilder?.buildEndpoint ? endpointBuilder.buildEndpoint(
-          urlValue,
-          httpCall.method,
-          location,
-          params,
-          responseHandling,
-          'custom-client'
-        ) : undefined;
-        
-        if (endpoint) {
-          endpointInfos.push(endpoint);
-        }
-      }
-      
-      return endpointInfos;
-    }
-    
-    // HTTP呼び出しが見つからなかった場合は、メソッド名からエンドポイントを推測
-    const methodName = Node.isMethodDeclaration(methodDecl) || Node.isFunctionDeclaration(methodDecl) ? methodDecl.getName() || '' : '';
-    return this.extractEndpointFromMethodName(node, methodName, args, context);
-  }
-  
-  /**
-   * レスポンス処理情報を抽出する
-   * @param node 対象ノード
-   * @param location 使用箇所情報
-   * @returns レスポンス処理情報
-   */
-  private extractResponseHandling(node: Node, location: UsageLocation): ResponseUsage[] {
-    // thenメソッドチェーンを検出
-    const parentChain = NodeExtractorsExtended.findMethodChain(node);
-    if (parentChain) {
-      for (const chainNode of parentChain) {
-        if (NodePredicates.isMethodCall(chainNode, 'then')) {
-          const thenArgs = chainNode.isKind(SyntaxKind.CallExpression) ? chainNode.getArguments() : [];
-          
-          if (thenArgs.length > 0) {
-            const callbackBody = NodeExtractorsExtended.extractCallbackBody(thenArgs[0]);
-            
-            if (callbackBody) {
-              // 型付け情報を探す
-              const typeInfo = NodeExtractorsExtended.extractTypeAnnotation(callbackBody);
-              
-              if (typeInfo && typeInfo.length > 0) {
-                return [{
-                  type: 'typed',
-                  typeName: typeInfo[0].typeName,
-                  location: location
-                }];
-              } else {
-                // 変換処理の有無を確認
-                const transformationDetected = NodeExtractorsExtended.detectResponseTransformation(callbackBody);
-                
-                return [{
-                  type: transformationDetected ? 'transformation' : 'direct',
-                  location: location
-                }];
-              }
-            }
-          }
-        }
-      }
-    }
-    
-    // async/awaitパターンの検出
-    const awaitParent = NodeExtractorsExtended.findAwaitExpression(node);
-    if (awaitParent) {
-      // 変数への代入を探す
-      const assignment = NodeExtractorsExtended.findAssignmentExpression(awaitParent);
-      if (assignment) {
-        // 型付け情報を探す
-        const typeInfo = NodeExtractorsExtended.extractVariableTypeAnnotation(assignment);
-        if (typeInfo) {
-          return [{
-            type: 'typed',
-            typeName: typeInfo,
-            location: location
-          }];
-        }
-      }
-    }
-    
-    // デフォルト値
-    return [{
-      type: 'unknown',
-      location: location
-    }];
-  }
-  
-  /**
-   * fetch呼び出しを探して情報を抽出
-   * @param body 探索対象のノード
-   * @returns 検出されたHTTP呼び出し情報
-   */
-  private findFetchCalls(body: Node): { node: Node; method: HttpMethod; url: string | null }[] {
-    const result: { node: Node; method: HttpMethod; url: string | null }[] = [];
-    
-    const fetchCalls = body.getDescendantsOfKind(SyntaxKind.CallExpression)
-      .filter(call => {
-        const expr = call.getExpression();
-        return expr.getText() === 'fetch' || 
-               expr.getText() === 'window.fetch' || 
-               expr.getText() === 'self.fetch' || 
-               expr.getText() === 'global.fetch';
-      });
-    
-    for (const fetchCall of fetchCalls) {
-      const fetchArgs = fetchCall.getArguments();
-      
-      if (fetchArgs.length === 0) {
-        continue;
-      }
-      
-      const urlArg = fetchArgs[0];
-      const urlValue = NodeExtractorsExtended.extractStringValue(urlArg);
-      
-      if (!urlValue) {
-        continue;
-      }
-      
-      let methodValue: HttpMethod = 'GET';
-      
-      if (fetchArgs.length > 1 && fetchArgs[1].isKind(SyntaxKind.ObjectLiteralExpression)) {
-        const optionsObj = fetchArgs[1];
-        const methodNode = NodeExtractorsExtended.getPropertyFromObjectLiteral(optionsObj, 'method');
-        
-        if (methodNode) {
-          const methodText = NodeExtractorsExtended.extractStringValue(methodNode);
-          if (methodText) {
-            methodValue = methodText.toUpperCase() as HttpMethod;
-          }
-        }
-      }
-      
-      result.push({ node: fetchCall, method: methodValue, url: urlValue });
-    }
-    
-    return result;
-  }
-  
-  /**
-   * axios呼び出しを探して情報を抽出
-   * @param body 探索対象のノード
-   * @returns 検出されたHTTP呼び出し情報
-   */
-  private findAxiosCalls(body: Node): { node: Node; method: HttpMethod; url: string | null }[] {
-    const result: { node: Node; method: HttpMethod; url: string | null }[] = [];
-    
-    const axiosCalls = body.getDescendantsOfKind(SyntaxKind.CallExpression)
-      .filter(call => {
-        const expr = call.getExpression();
-        if (!expr.isKind(SyntaxKind.PropertyAccessExpression)) {
-          return false;
-        }
-        
-        const objExpr = expr.getExpression();
-        const methodName = expr.getName().toLowerCase();
-        
-        return (
-          objExpr.getText() === 'axios' ||
-          objExpr.getText().toLowerCase().includes('axios') ||
-          objExpr.getText().toLowerCase().includes('http') ||
-          objExpr.getText().toLowerCase().includes('client')
-        ) && ['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(methodName);
-      });
-    
-    for (const axiosCall of axiosCalls) {
-      const expr = axiosCall.getExpression();
-      if (!expr.isKind(SyntaxKind.PropertyAccessExpression)) {
-        continue;
-      }
-      
-      const methodName = expr.getName().toLowerCase();
-      const axiosArgs = axiosCall.getArguments();
-      
-      if (axiosArgs.length === 0) {
-        continue;
-      }
-      
-      const urlArg = axiosArgs[0];
-      const urlValue = NodeExtractorsExtended.extractStringValue(urlArg);
-      
-      if (!urlValue) {
-        continue;
-      }
-      
-      const methodValue = methodName.toUpperCase() as HttpMethod;
-      
-      result.push({ node: axiosCall, method: methodValue, url: urlValue });
-    }
-    
-    return result;
-  }
-  
-  /**
-   * メソッド定義を探す
-   * @param sourceFile ソースファイル
-   * @param objName オブジェクト名
-   * @param methodName メソッド名
-   * @returns メソッド定義ノード
-   */
-  private findMethodDefinition(sourceFile: SourceFile, objName: string, methodName: string): Node | undefined {
-    // クラス定義を探す
-    const classes = sourceFile.getClasses();
-    
-    for (const cls of classes) {
-      // クラス名が一致するか、インスタンス変数名と一致する可能性のあるものを探す
-      const className = cls.getName();
-      if (className && (
-        objName === className ||
-        objName.toLowerCase().includes(className.toLowerCase()) ||
-        className.toLowerCase().includes(objName.toLowerCase().replace(/service|repository|store|facade|provider/g, '').trim())
-      )) {
-        // メソッド定義を探す
-        const method = cls.getMethod(methodName);
-        if (method) {
-          return method;
-        }
-      }
-    }
-    
-    // 関数定義を探す（静的メソッドや関数の場合）
-    const functions = sourceFile.getFunctions();
-    
-    for (const func of functions) {
-      const funcName = func.getName();
-      if (funcName === methodName) {
-        return func;
-      }
-    }
-    
-    return undefined;
   }
   
   /**
@@ -614,8 +241,8 @@ export class ServiceMethodDetector extends BasePatternDetector {
    * @param context コンテキスト情報
    * @returns 使用箇所詳細情報
    */
-  private createUsageLocation(node: Node, sourceFile: SourceFile, context?: string): UsageLocation {
-    const lineAndColumn = NodeExtractorsExtended.getStartLineAndColumn(node);
+  private createUsageLocation(node: INode, sourceFile: ISourceFile, context?: string): UsageLocation {
+    const location = node.getLocation?.() || { lineNumber: 1, columnNumber: 1 };
     
     // 周囲のコンテキスト（メソッド/クラス名など）を推測
     let contextName = context;
@@ -625,8 +252,8 @@ export class ServiceMethodDetector extends BasePatternDetector {
     
     return {
       filePath: sourceFile.getFilePath(),
-      lineNumber: lineAndColumn.line,
-      columnNumber: lineAndColumn.column,
+      lineNumber: location.lineNumber,
+      columnNumber: location.columnNumber,
       context: contextName,
       codeSnippet: node.getText().slice(0, 100) // 先頭100文字までを取得
     };
