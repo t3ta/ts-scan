@@ -12,7 +12,7 @@ import { ServiceLocator, ServiceIds } from './core/ServiceLocator';
 import { logger, LogLevel } from './utils/Logger';
 import { AnalysisConfiguration, AnalysisResult } from './types';
 import { JsonReporter } from './reporters/JsonReporter';
-import { MarkdownReporter } from './reporters/markdown';
+import { MarkdownReporter } from './reporters/markdown/MarkdownReporter';
 import { ensureDirectoryExists, writeJsonFile } from './utils/fs-helper';
 import { EndpointBuilder } from './detectors/common/EndpointBuilder';
 import { AxiosDetectionStrategy } from './detectors/http/AxiosDetectionStrategy';
