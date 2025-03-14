@@ -44,8 +44,7 @@ class MockStrategy implements EndpointDetectionStrategy {
 describe('StrategyRegistry', () => {
   let serviceLocator: ServiceLocator;
   let registry: StrategyRegistry;
-  // 将来拡張時に使用する可能性がある変数
-  // let mockServiceLocator: IServiceLocator;
+  let mockServiceLocator: IServiceLocator;
   
   // 各テスト前の共通セットアップ
   beforeEach(() => {

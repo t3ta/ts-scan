@@ -17,8 +17,18 @@
 - コアコンポーネントのテスト実装完了
   - `ServiceLocator.test.ts` の実装完了
   - `StrategyRegistry.test.ts` の実装完了
-  - `AnalyzerEngine.test.ts` の実装完了
+- レポーターモジュールのテスト実装完了
+  - `JsonReporter.test.ts` の実装完了
+  - `MarkdownReporter.test.ts` の実装完了
+  - `reporters.integration.test.ts` の実装完了
+  - 主要ジェネレーターのテスト実装
+    - `SummaryGenerator.test.ts` の実装完了
+    - `StatisticsGenerator.test.ts` の実装完了
+    - `DetailGenerator.test.ts` の実装完了
 - テスト用モックヘルパーの実装完了（`tests/helpers/mocks.ts`）
+- 型定義問題の修正完了
+  - `EndpointSource` 型に対する `sourceDistribution` プロパティの修正
+  - 変数初期化問題の解決
 
 ## 未実装の機能や残作業
 
@@ -27,16 +37,27 @@
 - [x] `tests`ディレクトリの作成とベース構造の整備
 - [x] `tests/core/ServiceLocator.test.ts`ファイルの実装完了
 - [x] `tests/core/StrategyRegistry.test.ts`ファイルの実装完了
-- [x] `tests/core/AnalyzerEngine.test.ts`ファイルの作成と初期テスト
+- [ ] `tests/core/AnalyzerEngine.test.ts`ファイルの作成と初期テスト（ts-morph依存性問題あり）
 - [x] `tests/helpers`ディレクトリとユーティリティ関数の作成
 - [x] `tests/fixtures`ディレクトリとテストデータの作成
-- [x] `tests/detectors`ディレクトリと各検出器のテスト作成
+- [ ] `tests/detectors/AxiosDetectionStrategy.test.ts`の実装（部分的に完了、課題あり）
+- [x] `tests/reporters/JsonReporter.test.ts`の実装完了
+- [x] `tests/reporters/MarkdownReporter.test.ts`の実装完了
+- [x] `tests/reporters/reporters.integration.test.ts`の実装完了
+- [x] `tests/reporters/generators`ディレクトリと主要ジェネレーターのテスト作成
 
 ### 中優先度
 
-- [x] `tests/core/StrategyRegistry.test.ts`ファイルの作成
-- [x] `tests/detectors`ディレクトリと各検出器のテスト作成
-- [ ] `tests/reporters`ディレクトリとレポーター機能のテスト作成
+- [ ] 残りのジェネレーターのテスト作成
+  - [ ] `VisualizationGenerator.test.ts`
+  - [ ] `EndpointListGenerator.test.ts`
+  - [ ] `AnalysisGenerator.test.ts`
+  - [ ] `RecommendationGenerator.test.ts`
+- [ ] `tests/detectors`ディレクトリの残りの検出器のテスト作成
+  - [ ] `FetchDetectionStrategy.test.ts`
+  - [ ] `RTKQueryDetectionStrategy.test.ts`
+  - [ ] `CustomApiClientStrategy.test.ts`
+- [ ] ts-morph依存問題の解決策検討
 - [ ] CI環境でのテスト実行設定
 
 ### 低優先度
@@ -47,15 +68,22 @@
 
 ## 現在のステータス
 
-- 実装段階：コア機能（`ServiceLocator`、`StrategyRegistry`、`AnalyzerEngine`）および検出器モジュール（`AxiosDetectionStrategy`）のテスト実装完了
-- ts-mockitoを活用したモックフレームワークの導入により、より堅牢で型安全なテストを実装
-- language-serverを活用した型エラーの検出と修正を実施
-- TDDアプローチに従い、テスト -> 実装 -> リファクタリングのサイクルを実践中
-- 次フェーズではレポーターモジュールのテストに着手予定
+- 実装段階：コア機能（`ServiceLocator`、`StrategyRegistry`）、レポーターモジュール（`JsonReporter`、`MarkdownReporter`）および主要ジェネレーターのテスト実装完了
+- ts-mockitoを活用したモックフレームワークにより、型安全なテスト実装を達成
+- テスト分離手法を適用し、外部依存性（ファイルシステム等）を適切にモック化
+- AAA（Arrange-Act-Assert）パターンを一貫して使用し、テストの可読性と保守性を確保
+- 型定義の問題修正と変数初期化の適切な実装により、テストの安定性を向上
 
 ## 既知の問題点
 
-- 複雑な依存関係を持つコンポーネントのテストについては、ts-mockitoを活用して効率的に対応
-- モジュール間の結合度が高い部分は、インターフェース経由でのモック化により分離テストを実現
-- `AnalyzerEngine`のテストではファイルシステムや外部依存をモック化する必要があるが、現状対応済み
-- テスト実行環境での外部依存性（ts-morph、ファイルシステム等）はJestのモック機能で適切に分離
+- ts-morph依存性問題
+  - `AnalyzerEngine.test.ts` における `Cannot read properties of undefined (reading 'native')` エラー
+  - ts-morphの初期化に関連する環境依存問題
+  
+- 検出器モジュールのテスト課題
+  - `AxiosDetectionStrategy.test.ts` における検出結果の期待値不一致
+  - 複雑な検出ロジックに対する適切なモック戦略の検討が必要
+  
+- その他の実装課題
+  - 一部のモック化において、詳細な実装をモックで回避する手法を採用（`DetailGenerator.test.ts`）
+  - 本格的な統合テスト環境の整備には追加の検討が必要
