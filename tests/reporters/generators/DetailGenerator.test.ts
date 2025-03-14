@@ -7,7 +7,7 @@
  */
 
 import { DetailGenerator } from '../../../src/reporters/markdown/generators/DetailGenerator';
-import { AnalysisResult, EndpointInfo, HttpMethod, EndpointSource } from '../../../src/types';
+import { AnalysisResult, EndpointInfo, HttpMethod, EndpointSource, ParameterType, ResponseHandlingType } from '../../../src/types';
 
 // DetailGeneratorの実装をモック
 jest.mock('../../../src/reporters/markdown/generators/DetailGenerator', () => {
@@ -26,7 +26,7 @@ jest.mock('../../../src/reporters/markdown/generators/DetailGenerator', () => {
             return '';
           }
           return '## 解析エラー\n\n解析中に以下のエラーが発生しました:\n\n' + 
-            result.errors.map((error, index) => `${index + 1}. ${error}`).join('\n');
+            result.errors.map((error: string, index: number) => `${index + 1}. ${error}`).join('\n');
         })
       };
     })
@@ -61,7 +61,7 @@ describe('DetailGenerator', () => {
           parametersUsed: [
             {
               name: 'limit',
-              type: 'query',
+              type: 'query' as ParameterType,
               required: false,
               defaultValue: '10',
               locations: [
@@ -77,7 +77,7 @@ describe('DetailGenerator', () => {
           ],
           responseHandling: [
             {
-              type: 'typed',
+              type: 'typed' as ResponseHandlingType,
               typeName: 'User[]',
               location: {
                 filePath: '/path/to/response.ts',
@@ -109,7 +109,7 @@ describe('DetailGenerator', () => {
           parametersUsed: [
             {
               name: 'id',
-              type: 'path',
+              type: 'path' as ParameterType,
               required: true,
               locations: [
                 {
@@ -124,7 +124,7 @@ describe('DetailGenerator', () => {
           ],
           responseHandling: [
             {
-              type: 'transformation',
+              type: 'transformation' as ResponseHandlingType,
               location: {
                 filePath: '/path/to/details.ts',
                 lineNumber: 35,

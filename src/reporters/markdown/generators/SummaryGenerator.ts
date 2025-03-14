@@ -19,10 +19,15 @@ export class SummaryGenerator extends BaseGenerator {
    * @returns 生成されたMarkdownセクション
    */
   public generateExecutiveSummary(result: AnalysisResult): string {
-    const { endpoints, statistics } = result;
+    const { endpoints, statistics, errors } = result;
     let content = '';
     
     content += `## エグゼクティブサマリー\n\n`;
+    
+    // エラーがある場合は警告を表示
+    if (errors && errors.length > 0) {
+      content += `> ⚠️ **注意:** 解析中に${errors.length}件のエラーが発生しました。\n\n`;
+    }
     
     // 主要な統計情報をハイライト
     content += `### 主要指標\n\n`;
@@ -32,7 +37,7 @@ export class SummaryGenerator extends BaseGenerator {
     content += `- **RTK Query採用率:** ${this.calculatePercentage(statistics.rtkQueryUsage.totalEndpoints, statistics.totalEndpoints)}%\n`;
 
     // 最頻使用エンドポイント
-    if (statistics.mostUsedEndpoints.length > 0) {
+    if (statistics.totalEndpoints > 0 && statistics.mostUsedEndpoints && statistics.mostUsedEndpoints.length > 0) {
       const topEndpoint = statistics.mostUsedEndpoints[0];
       content += `- **最も使用されているエンドポイント:** \`${topEndpoint.path}\` (${topEndpoint.count}回使用)\n`;
     }
