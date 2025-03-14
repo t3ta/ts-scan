@@ -5,7 +5,6 @@
  * コア実装を提供します。複数の検出戦略を組み合わせて効率的にエンドポイントを検出します。
  */
 
-import { Project, SourceFile } from 'ts-morph';
 import * as path from 'path';
 import * as fs from 'fs';
 import {
@@ -17,6 +16,8 @@ import {
   DetectionContext,
   ServiceLocator
 } from '../types';
+import { IASTProvider } from './ast/interfaces/IASTProvider';
+import { ISourceFile } from './ast/interfaces/ISourceFile';
 import { ServiceLocator as ServiceLocatorImpl, ServiceIds } from './ServiceLocator';
 import { logger } from '../utils/Logger';
 import { StrategyRegistry } from './StrategyRegistry';
@@ -27,11 +28,11 @@ import { validateProjectStructure, findTsConfigFile, generateTemporaryTsConfig, 
  * エンドポイント解析エンジン
  */
 export class AnalyzerEngine {
-  private project: Project;
+  private astProvider: IASTProvider;
   private configuration: AnalysisConfiguration;
   private strategyRegistry: StrategyRegistry;
   private serviceLocator: ServiceLocator;
-  private sourceFiles: SourceFile[] = [];
+  private sourceFiles: ISourceFile[] = [];
   private temporaryFiles: string[] = [];
   
   /**
@@ -47,14 +48,16 @@ export class AnalyzerEngine {
     this.serviceLocator = serviceLocator || ServiceLocatorImpl.getInstance();
     
     try {
+      // tsconfig.jsonパスの取得
       const tsConfigPath = this.findOrCreateTsConfigPath();
-      this.project = new Project({
-        tsConfigFilePath: tsConfigPath,
-        skipAddingFilesFromTsConfig: true
-      });
       
-      // TypeChecker の登録
-      this.serviceLocator.register(ServiceIds.TYPE_CHECKER, this.project.getTypeChecker());
+      // ASTプロバイダーの取得または登録
+      if (this.serviceLocator.has(ServiceIds.AST_PROVIDER)) {
+        this.astProvider = this.serviceLocator.getASTProvider();
+      } else {
+        this.serviceLocator.registerASTProvider();
+        this.astProvider = this.serviceLocator.getASTProvider();
+      }
     } catch (error: unknown) {
       logger.error(`プロジェクト初期化中にエラーが発生: ${error}`);
       throw new Error(`TypeScript環境の初期化に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
@@ -145,8 +148,8 @@ export class AnalyzerEngine {
     logger.info(`ソースファイルを追加中: ${patterns.join(', ')}`);
     
     try {
-      this.project.addSourceFilesAtPaths(patterns);
-      this.sourceFiles = this.project.getSourceFiles();
+      // ts-morphの互換性維持のため、アダプターを通じた実装
+      this.sourceFiles = this.astProvider.parseFiles(patterns);
       
       if (this.sourceFiles.length === 0) {
         logger.warn(`警告: 指定されたパターン '${patterns.join(', ')}' に一致するファイルが見つかりませんでした。`);
@@ -158,8 +161,8 @@ export class AnalyzerEngine {
         ];
         
         logger.info(`デフォルトパターンでの再試行: ${defaultPatterns.join(', ')}`);
-        this.project.addSourceFilesAtPaths(defaultPatterns);
-        this.sourceFiles = this.project.getSourceFiles();
+        // デフォルトパターンでの再試行
+        this.sourceFiles = this.astProvider.parseFiles(defaultPatterns);
       }
       
       // 除外パターンの適用
@@ -224,7 +227,7 @@ export class AnalyzerEngine {
         const context: DetectionContext = {
           sourceFile,
           configuration: this.configuration,
-          typeChecker: this.project.getTypeChecker(),
+          typeChecker: this.astProvider.getTypeChecker(),
           serviceLocator: this.serviceLocator
         };
         

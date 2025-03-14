@@ -1,0 +1,512 @@
+{
+  "filePath": "sample/axios-client-usage.ts",
+  "fileName": "axios-client-usage.ts",
+  "text": "import axios from 'axios';\n\n/**\n * ユーザーデータを取得する関数\n * @param userId ユーザーID\n * @returns ユーザー情報\n */\nasync function fetchUserData(userId: string) {\n  try {\n    const response = await axios.get(`/api/users/${userId}`);\n    return response.data;\n  } catch (error) {\n    console.error('Error fetching user data:', error);\n    throw error;\n  }\n}\n\n/**\n * 新しいユーザーを作成する関数\n * @param userData ユーザーデータ\n * @returns 作成されたユーザー情報\n */\nasync function createUser(userData: { name: string; email: string }) {\n  try {\n    const response = await axios.post('/api/users', userData);\n    return response.data;\n  } catch (error) {\n    console.error('Error creating user:', error);\n    throw error;\n  }\n}\n\n/**\n * ユーザー情報を更新する関数\n * @param userId ユーザーID\n * @param userData 更新するユーザーデータ\n * @returns 更新されたユーザー情報\n */\nasync function updateUser(userId: string, userData: Partial<{ name: string; email: string }>) {\n  try {\n    const response = await axios.put(`/api/users/${userId}`, userData);\n    return response.data;\n  } catch (error) {\n    console.error('Error updating user:', error);\n    throw error;\n  }\n}\n\nexport { fetchUserData, createUser, updateUser };\n",
+  "kind": 0,
+  "children": [
+    {
+      "kind": 13,
+      "text": "import axios from 'axios';",
+      "location": {
+        "line": 1,
+        "column": 1,
+        "start": 0,
+        "end": 26
+      },
+      "properties": {
+        "moduleSpecifier": "axios",
+        "defaultImport": "axios"
+      },
+      "children": []
+    },
+    {
+      "kind": 5,
+      "text": "async function fetchUserData(userId: string) {\n  try {\n    const response = await axios.get(`/api/users/${userId}`);\n    return response.data;\n  } catch (error) {\n    console.error('Error fetching user data:', error);\n    throw error;\n  }\n}",
+      "location": {
+        "line": 8,
+        "column": 1,
+        "start": 129,
+        "end": 346
+      },
+      "properties": {
+        "name": "fetchUserData",
+        "isAsync": true,
+        "isGenerator": false
+      },
+      "children": [
+        {
+          "kind": 9,
+          "text": "fetchUserData",
+          "location": {
+            "line": 8,
+            "column": 16,
+            "start": 144,
+            "end": 158
+          },
+          "properties": {},
+          "children": []
+        },
+        {
+          "kind": 16,
+          "text": "(userId: string)",
+          "location": {
+            "line": 8,
+            "column": 16,
+            "start": 144,
+            "end": 174
+          },
+          "properties": {},
+          "children": []
+        },
+        {
+          "kind": 1,
+          "text": "{\n  try {\n    const response = await axios.get(`/api/users/${userId}`);\n    return response.data;\n  } catch (error) {\n    console.error('Error fetching user data:', error);\n    throw error;\n  }\n}",
+          "location": {
+            "line": 8,
+            "column": 176,
+            "start": 176,
+            "end": 346
+          },
+          "properties": {},
+          "children": [
+            {
+              "kind": 20,
+              "text": "try {\n    const response = await axios.get(`/api/users/${userId}`);\n    return response.data;\n  } catch (error) {\n    console.error('Error fetching user data:', error);\n    throw error;\n  }",
+              "location": {
+                "line": 9,
+                "column": 3,
+                "start": 180,
+                "end": 344
+              },
+              "properties": {},
+              "children": [
+                {
+                  "kind": 1,
+                  "text": "{\n    const response = await axios.get(`/api/users/${userId}`);\n    return response.data;\n  }",
+                  "location": {
+                    "line": 9,
+                    "column": 7,
+                    "start": 184,
+                    "end": 260
+                  },
+                  "properties": {},
+                  "children": [
+                    {
+                      "kind": 12,
+                      "text": "const response = await axios.get(`/api/users/${userId}`);",
+                      "location": {
+                        "line": 10,
+                        "column": 5,
+                        "start": 190,
+                        "end": 246
+                      },
+                      "properties": {},
+                      "children": [
+                        {
+                          "kind": 6,
+                          "text": "response",
+                          "location": {
+                            "line": 10,
+                            "column": 11,
+                            "start": 196,
+                            "end": 204
+                          },
+                          "properties": {
+                            "isConst": true
+                          },
+                          "children": []
+                        },
+                        {
+                          "kind": 7,
+                          "text": "await axios.get(`/api/users/${userId}`)",
+                          "location": {
+                            "line": 10,
+                            "column": 15,
+                            "start": 207,
+                            "end": 245
+                          },
+                          "properties": {},
+                          "children": [
+                            {
+                              "kind": 8,
+                              "text": "axios.get(`/api/users/${userId}`)",
+                              "location": {
+                                "line": 10,
+                                "column": 21,
+                                "start": 213,
+                                "end": 245
+                              },
+                              "properties": {
+                                "method": "get",
+                                "endpoint": "/api/users/${userId}"
+                              },
+                              "children": []
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": 19,
+                      "text": "return response.data;",
+                      "location": {
+                        "line": 11,
+                        "column": 5,
+                        "start": 252,
+                        "end": 273
+                      },
+                      "properties": {},
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "kind": 1,
+                  "text": "{\n    console.error('Error fetching user data:', error);\n    throw error;\n  }",
+                  "location": {
+                    "line": 12,
+                    "column": 10,
+                    "start": 268,
+                    "end": 344
+                  },
+                  "properties": {},
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": 5,
+      "text": "async function createUser(userData: { name: string; email: string }) {\n  try {\n    const response = await axios.post('/api/users', userData);\n    return response.data;\n  } catch (error) {\n    console.error('Error creating user:', error);\n    throw error;\n  }\n}",
+      "location": {
+        "line": 23,
+        "column": 1,
+        "start": 426,
+        "end": 653
+      },
+      "properties": {
+        "name": "createUser",
+        "isAsync": true,
+        "isGenerator": false
+      },
+      "children": [
+        {
+          "kind": 9,
+          "text": "createUser",
+          "location": {
+            "line": 23,
+            "column": 16,
+            "start": 441,
+            "end": 451
+          },
+          "properties": {},
+          "children": []
+        },
+        {
+          "kind": 16,
+          "text": "(userData: { name: string; email: string })",
+          "location": {
+            "line": 23,
+            "column": 16,
+            "start": 441,
+            "end": 487
+          },
+          "properties": {},
+          "children": []
+        },
+        {
+          "kind": 1,
+          "text": "{\n  try {\n    const response = await axios.post('/api/users', userData);\n    return response.data;\n  } catch (error) {\n    console.error('Error creating user:', error);\n    throw error;\n  }\n}",
+          "location": {
+            "line": 23,
+            "column": 489,
+            "start": 489,
+            "end": 653
+          },
+          "properties": {},
+          "children": [
+            {
+              "kind": 20,
+              "text": "try {\n    const response = await axios.post('/api/users', userData);\n    return response.data;\n  } catch (error) {\n    console.error('Error creating user:', error);\n    throw error;\n  }",
+              "location": {
+                "line": 24,
+                "column": 3,
+                "start": 493,
+                "end": 651
+              },
+              "properties": {},
+              "children": [
+                {
+                  "kind": 1,
+                  "text": "{\n    const response = await axios.post('/api/users', userData);\n    return response.data;\n  }",
+                  "location": {
+                    "line": 24,
+                    "column": 7,
+                    "start": 497,
+                    "end": 573
+                  },
+                  "properties": {},
+                  "children": [
+                    {
+                      "kind": 12,
+                      "text": "const response = await axios.post('/api/users', userData);",
+                      "location": {
+                        "line": 25,
+                        "column": 5,
+                        "start": 503,
+                        "end": 559
+                      },
+                      "properties": {},
+                      "children": [
+                        {
+                          "kind": 6,
+                          "text": "response",
+                          "location": {
+                            "line": 25,
+                            "column": 11,
+                            "start": 509,
+                            "end": 517
+                          },
+                          "properties": {
+                            "isConst": true
+                          },
+                          "children": []
+                        },
+                        {
+                          "kind": 7,
+                          "text": "await axios.post('/api/users', userData)",
+                          "location": {
+                            "line": 25,
+                            "column": 20,
+                            "start": 518,
+                            "end": 558
+                          },
+                          "properties": {},
+                          "children": [
+                            {
+                              "kind": 8,
+                              "text": "axios.post('/api/users', userData)",
+                              "location": {
+                                "line": 25,
+                                "column": 26,
+                                "start": 524,
+                                "end": 558
+                              },
+                              "properties": {
+                                "method": "post",
+                                "endpoint": "/api/users"
+                              },
+                              "children": []
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": 19,
+                      "text": "return response.data;",
+                      "location": {
+                        "line": 26,
+                        "column": 5,
+                        "start": 565,
+                        "end": 586
+                      },
+                      "properties": {},
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "kind": 1,
+                  "text": "{\n    console.error('Error creating user:', error);\n    throw error;\n  }",
+                  "location": {
+                    "line": 27,
+                    "column": 10,
+                    "start": 581,
+                    "end": 651
+                  },
+                  "properties": {},
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": 5,
+      "text": "async function updateUser(userId: string, userData: Partial<{ name: string; email: string }>) {\n  try {\n    const response = await axios.put(`/api/users/${userId}`, userData);\n    return response.data;\n  } catch (error) {\n    console.error('Error updating user:', error);\n    throw error;\n  }\n}",
+      "location": {
+        "line": 37,
+        "column": 1,
+        "start": 738,
+        "end": 995
+      },
+      "properties": {
+        "name": "updateUser",
+        "isAsync": true,
+        "isGenerator": false
+      },
+      "children": [
+        {
+          "kind": 9,
+          "text": "updateUser",
+          "location": {
+            "line": 37,
+            "column": 16,
+            "start": 753,
+            "end": 763
+          },
+          "properties": {},
+          "children": []
+        },
+        {
+          "kind": 16,
+          "text": "(userId: string, userData: Partial<{ name: string; email: string }>)",
+          "location": {
+            "line": 37,
+            "column": 16,
+            "start": 753,
+            "end": 829
+          },
+          "properties": {},
+          "children": []
+        },
+        {
+          "kind": 1,
+          "text": "{\n  try {\n    const response = await axios.put(`/api/users/${userId}`, userData);\n    return response.data;\n  } catch (error) {\n    console.error('Error updating user:', error);\n    throw error;\n  }\n}",
+          "location": {
+            "line": 37,
+            "column": 831,
+            "start": 831,
+            "end": 995
+          },
+          "properties": {},
+          "children": [
+            {
+              "kind": 20,
+              "text": "try {\n    const response = await axios.put(`/api/users/${userId}`, userData);\n    return response.data;\n  } catch (error) {\n    console.error('Error updating user:', error);\n    throw error;\n  }",
+              "location": {
+                "line": 38,
+                "column": 3,
+                "start": 835,
+                "end": 993
+              },
+              "properties": {},
+              "children": [
+                {
+                  "kind": 1,
+                  "text": "{\n    const response = await axios.put(`/api/users/${userId}`, userData);\n    return response.data;\n  }",
+                  "location": {
+                    "line": 38,
+                    "column": 7,
+                    "start": 839,
+                    "end": 916
+                  },
+                  "properties": {},
+                  "children": [
+                    {
+                      "kind": 12,
+                      "text": "const response = await axios.put(`/api/users/${userId}`, userData);",
+                      "location": {
+                        "line": 39,
+                        "column": 5,
+                        "start": 845,
+                        "end": 902
+                      },
+                      "properties": {},
+                      "children": [
+                        {
+                          "kind": 6,
+                          "text": "response",
+                          "location": {
+                            "line": 39,
+                            "column": 11,
+                            "start": 851,
+                            "end": 859
+                          },
+                          "properties": {
+                            "isConst": true
+                          },
+                          "children": []
+                        },
+                        {
+                          "kind": 7,
+                          "text": "await axios.put(`/api/users/${userId}`, userData)",
+                          "location": {
+                            "line": 39,
+                            "column": 20,
+                            "start": 860,
+                            "end": 901
+                          },
+                          "properties": {},
+                          "children": [
+                            {
+                              "kind": 8,
+                              "text": "axios.put(`/api/users/${userId}`, userData)",
+                              "location": {
+                                "line": 39,
+                                "column": 26,
+                                "start": 866,
+                                "end": 901
+                              },
+                              "properties": {
+                                "method": "put",
+                                "endpoint": "/api/users/${userId}"
+                              },
+                              "children": []
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": 19,
+                      "text": "return response.data;",
+                      "location": {
+                        "line": 40,
+                        "column": 5,
+                        "start": 908,
+                        "end": 929
+                      },
+                      "properties": {},
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "kind": 1,
+                  "text": "{\n    console.error('Error updating user:', error);\n    throw error;\n  }",
+                  "location": {
+                    "line": 41,
+                    "column": 10,
+                    "start": 924,
+                    "end": 993
+                  },
+                  "properties": {},
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": 7,
+      "text": "export { fetchUserData, createUser, updateUser };",
+      "location": {
+        "line": 47,
+        "column": 1,
+        "start": 997,
+        "end": 1048
+      },
+      "properties": {},
+      "children": []
+    }
+  ]
+}

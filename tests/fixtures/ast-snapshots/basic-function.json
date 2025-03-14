@@ -1,0 +1,98 @@
+{
+  "filePath": "sample/basic-function.ts",
+  "fileName": "basic-function.ts",
+  "text": "/**\n * 基本的な関数サンプル\n */\nfunction greet(name: string): string {\n  return `Hello, ${name}!`;\n}\n\nexport default greet;\n",
+  "kind": 0,
+  "children": [
+    {
+      "kind": 5,
+      "text": "function greet(name: string): string {\n  return `Hello, ${name}!`;\n}",
+      "location": {
+        "line": 4,
+        "column": 1,
+        "start": 34,
+        "end": 95
+      },
+      "properties": {
+        "name": "greet",
+        "isAsync": false,
+        "isGenerator": false
+      },
+      "children": [
+        {
+          "kind": 9,
+          "text": "greet",
+          "location": {
+            "line": 4,
+            "column": 10,
+            "start": 43,
+            "end": 48
+          },
+          "properties": {},
+          "children": []
+        },
+        {
+          "kind": 16,
+          "text": "(name: string)",
+          "location": {
+            "line": 4,
+            "column": 10,
+            "start": 43,
+            "end": 62
+          },
+          "properties": {},
+          "children": []
+        },
+        {
+          "kind": 3,
+          "text": "string",
+          "location": {
+            "line": 4,
+            "column": 64,
+            "start": 64,
+            "end": 70
+          },
+          "properties": {},
+          "children": []
+        },
+        {
+          "kind": 1,
+          "text": "{\n  return `Hello, ${name}!`;\n}",
+          "location": {
+            "line": 4,
+            "column": 72,
+            "start": 72,
+            "end": 95
+          },
+          "properties": {},
+          "children": [
+            {
+              "kind": 19,
+              "text": "return `Hello, ${name}!`;",
+              "location": {
+                "line": 5,
+                "column": 3,
+                "start": 76,
+                "end": 93
+              },
+              "properties": {},
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": 7,
+      "text": "export default greet;",
+      "location": {
+        "line": 8,
+        "column": 1,
+        "start": 97,
+        "end": 117
+      },
+      "properties": {},
+      "children": []
+    }
+  ]
+}

@@ -5,7 +5,8 @@
  * 各モジュールは必要に応じて独自の型を定義または拡張することがあります。
  */
 
-import { Node, SourceFile, TypeChecker } from 'ts-morph';
+import { TypeChecker } from 'ts-morph';
+import { ISourceFile } from './core/ast/interfaces/ISourceFile';
 
 /**
  * サポートするHTTPメソッド
@@ -153,7 +154,7 @@ export interface AnalysisResult {
  * 検出コンテキスト
  */
 export interface DetectionContext {
-  sourceFile: SourceFile;            // 解析対象ソースファイル
+  sourceFile: ISourceFile;            // 解析対象ソースファイル
   configuration: AnalysisConfiguration; // 解析設定
   typeChecker: TypeChecker;          // 型チェッカー
   apiName?: string;                  // API名（コンテキストに応じて設定）
@@ -174,7 +175,7 @@ export interface EndpointDetectionStrategy {
    * @param context 検出コンテキスト
    * @returns 検出されたエンドポイント情報配列
    */
-  detect(sourceFile: SourceFile, context: DetectionContext): EndpointInfo[];
+  detect(sourceFile: ISourceFile, context: DetectionContext): EndpointInfo[];
 }
 
 /**

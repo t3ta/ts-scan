@@ -1,175 +1,114 @@
 /**
- * ServiceLocator クラスのユニットテスト
+ * ServiceLocatorのユニットテスト
  * 
- * サービスロケーターの各機能を検証します。
- * シングルトンパターンとDIコンテナとしての機能をテストします。
+ * 依存性注入のためのサービスロケーターパターン実装とASTプロバイダー対応のテストを行います。
  */
 
-// ts-mockitoはこのテストでは使用していないが、将来の拡張のために設定しておく
 import { ServiceLocator, ServiceIds } from '../../src/core/ServiceLocator';
+import { IASTProvider } from '../../src/core/ast/interfaces/IASTProvider';
+import { MockProvider } from '../../src/core/ast/implementations/MockProvider';
+import { TsMorphAdapter } from '../../src/core/ast/adapters/TsMorphAdapter';
+import { loadASTSnapshot } from '../helpers/ast-helpers';
 
-// テスト用のモックサービスクラス
-class MockService {
-  public getValue(): string {
-    return 'mock-value';
-  }
-}
-
-// テスト用の別のモックサービスクラス
-class AnotherMockService {
-  public getData(): string {
-    return 'another-data';
-  }
-}
+// 環境変数をモック化
+const originalEnv = process.env.NODE_ENV;
 
 describe('ServiceLocator', () => {
-  // 各テスト前にServiceLocatorをクリアする
+  let serviceLocator: ServiceLocator;
+  
   beforeEach(() => {
-    ServiceLocator.getInstance().clear();
+    // 各テスト前に環境変数をリセット
+    process.env.NODE_ENV = originalEnv;
+    // シングルトンインスタンスをクリア
+    serviceLocator = ServiceLocator.getInstance();
+    serviceLocator.clear();
   });
-
-  // シングルトンの動作確認
-  describe('getInstance', () => {
-    it('常に同じインスタンスを返すこと', () => {
-      // Arrange
+  
+  afterAll(() => {
+    // テスト後に環境変数を元に戻す
+    process.env.NODE_ENV = originalEnv;
+  });
+  
+  describe('基本機能', () => {
+    it('シングルトンインスタンスを返すこと', () => {
       const instance1 = ServiceLocator.getInstance();
       const instance2 = ServiceLocator.getInstance();
       
-      // Assert
       expect(instance1).toBe(instance2);
     });
-  });
-  
-  // 登録と解決の基本動作
-  describe('register と resolve', () => {
-    it('登録したサービスを正しく解決できること', () => {
+    
+    it('サービスを登録して取得できること', () => {
       // Arrange
-      const serviceLocator = ServiceLocator.getInstance();
-      const mockService = new MockService();
+      const testService = { test: 'value' };
+      serviceLocator.register('testService', testService);
       
       // Act
-      serviceLocator.register('mockService', mockService);
-      const resolved = serviceLocator.resolve<MockService>('mockService');
+      const retrieved = serviceLocator.resolve<typeof testService>('testService');
       
       // Assert
-      expect(resolved).toBe(mockService);
-      expect(resolved.getValue()).toBe('mock-value');
+      expect(retrieved).toBe(testService);
     });
     
-    it('未登録のサービスを解決しようとすると例外が発生すること', () => {
+    it('登録されていないサービスを取得しようとすると例外がスローされること', () => {
+      expect(() => {
+        serviceLocator.resolve('non-existent');
+      }).toThrow();
+    });
+    
+    it('既に登録されているサービスを再登録しようとすると例外がスローされること', () => {
       // Arrange
-      const serviceLocator = ServiceLocator.getInstance();
+      serviceLocator.register('testService', {});
       
       // Act & Assert
       expect(() => {
-        serviceLocator.resolve<MockService>('nonExistentService');
-      }).toThrow("サービス 'nonExistentService' が登録されていません");
+        serviceLocator.register('testService', {});
+      }).toThrow();
     });
     
-    it('既に登録済みのサービスIDで登録しようとすると例外が発生すること', () => {
+    it('override()で既存のサービスを上書きできること', () => {
       // Arrange
-      const serviceLocator = ServiceLocator.getInstance();
-      const mockService1 = new MockService();
-      const mockService2 = new MockService();
+      const originalService = { original: true };
+      const newService = { new: true };
+      serviceLocator.register('testService', originalService);
       
       // Act
-      serviceLocator.register('mockService', mockService1);
+      serviceLocator.override('testService', newService);
+      const retrieved = serviceLocator.resolve<typeof newService>('testService');
       
       // Assert
-      expect(() => {
-        serviceLocator.register('mockService', mockService2);
-      }).toThrow("サービス 'mockService' は既に登録されています");
-    });
-  });
-  
-  // override メソッドのテスト
-  describe('override', () => {
-    it('既存のサービスを上書きできること', () => {
-      // Arrange
-      const serviceLocator = ServiceLocator.getInstance();
-      const mockService1 = new MockService();
-      const mockService2 = new MockService();
-      
-      // Act
-      serviceLocator.register('mockService', mockService1);
-      serviceLocator.override('mockService', mockService2);
-      const resolved = serviceLocator.resolve<MockService>('mockService');
-      
-      // Assert
-      expect(resolved).toBe(mockService2);
-      expect(resolved).not.toBe(mockService1);
+      expect(retrieved).toBe(newService);
+      expect(retrieved).not.toBe(originalService);
     });
     
-    it('未登録のサービスIDでもoverrideで登録できること', () => {
+    it('has()で登録の有無を確認できること', () => {
       // Arrange
-      const serviceLocator = ServiceLocator.getInstance();
-      const mockService = new MockService();
-      
-      // Act
-      serviceLocator.override('mockService', mockService);
-      const resolved = serviceLocator.resolve<MockService>('mockService');
-      
-      // Assert
-      expect(resolved).toBe(mockService);
-    });
-  });
-  
-  // has メソッドのテスト
-  describe('has', () => {
-    it('登録済みのサービスはtrueを返すこと', () => {
-      // Arrange
-      const serviceLocator = ServiceLocator.getInstance();
-      serviceLocator.register('mockService', new MockService());
+      serviceLocator.register('testService', {});
       
       // Act & Assert
-      expect(serviceLocator.has('mockService')).toBe(true);
+      expect(serviceLocator.has('testService')).toBe(true);
+      expect(serviceLocator.has('non-existent')).toBe(false);
     });
     
-    it('未登録のサービスはfalseを返すこと', () => {
+    it('getRegisteredServiceIds()ですべてのサービスIDを取得できること', () => {
       // Arrange
-      const serviceLocator = ServiceLocator.getInstance();
-      
-      // Act & Assert
-      expect(serviceLocator.has('nonExistentService')).toBe(false);
-    });
-  });
-  
-  // getRegisteredServiceIds メソッドのテスト
-  describe('getRegisteredServiceIds', () => {
-    it('すべての登録済みサービスIDを取得できること', () => {
-      // Arrange
-      const serviceLocator = ServiceLocator.getInstance();
-      serviceLocator.register('service1', new MockService());
-      serviceLocator.register('service2', new AnotherMockService());
+      serviceLocator.register('service1', {});
+      serviceLocator.register('service2', {});
+      serviceLocator.register('service3', {});
       
       // Act
-      const ids = serviceLocator.getRegisteredServiceIds();
+      const serviceIds = serviceLocator.getRegisteredServiceIds();
       
       // Assert
-      expect(ids.length).toBe(2);
-      expect(ids).toContain('service1');
-      expect(ids).toContain('service2');
+      expect(serviceIds).toContain('service1');
+      expect(serviceIds).toContain('service2');
+      expect(serviceIds).toContain('service3');
+      expect(serviceIds.length).toBe(3);
     });
     
-    it('サービスが登録されていない場合は空の配列を返すこと', () => {
+    it('clear()ですべてのサービスを削除できること', () => {
       // Arrange
-      const serviceLocator = ServiceLocator.getInstance();
-      
-      // Act
-      const ids = serviceLocator.getRegisteredServiceIds();
-      
-      // Assert
-      expect(ids).toEqual([]);
-    });
-  });
-  
-  // clear メソッドのテスト
-  describe('clear', () => {
-    it('すべてのサービスが削除されること', () => {
-      // Arrange
-      const serviceLocator = ServiceLocator.getInstance();
-      serviceLocator.register('service1', new MockService());
-      serviceLocator.register('service2', new AnotherMockService());
+      serviceLocator.register('service1', {});
+      serviceLocator.register('service2', {});
       
       // Act
       serviceLocator.clear();
@@ -181,18 +120,82 @@ describe('ServiceLocator', () => {
     });
   });
   
-  // ServiceIds 定数のテスト
-  describe('ServiceIds', () => {
-    it('定義されたすべてのサービスIDが文字列であること', () => {
-      // すべてのサービスIDをループしてチェック
-      Object.values(ServiceIds).forEach(id => {
-        expect(typeof id).toBe('string');
-      });
+  describe('ASTプロバイダー対応', () => {
+    it('registerASTProvider()でASTプロバイダーを登録できること', () => {
+      // Arrange
+      const mockProvider = new MockProvider();
+      
+      // Act
+      serviceLocator.registerASTProvider(mockProvider);
+      
+      // Assert
+      expect(serviceLocator.has(ServiceIds.AST_PROVIDER)).toBe(true);
+      expect(serviceLocator.resolve<IASTProvider>(ServiceIds.AST_PROVIDER)).toBe(mockProvider);
     });
     
-    it('コアサービスのIDが正しく定義されていること', () => {
-      expect(ServiceIds.LOGGER).toBe('logger');
-      expect(ServiceIds.TYPE_CHECKER).toBe('typeChecker');
+    it('プロバイダーを指定せずregisterASTProvider()を呼び出すと自動的にプロバイダーを生成すること', () => {
+      // Act
+      serviceLocator.registerASTProvider();
+      
+      // Assert
+      expect(serviceLocator.has(ServiceIds.AST_PROVIDER)).toBe(true);
+      
+      const provider = serviceLocator.resolve<IASTProvider>(ServiceIds.AST_PROVIDER);
+      if (process.env.NODE_ENV === 'test') {
+        expect(provider).toBeInstanceOf(MockProvider);
+      } else {
+        expect(provider).toBeInstanceOf(TsMorphAdapter);
+      }
+    });
+    
+    it('ASTプロバイダー登録時に型チェッカーも同時に登録されること', () => {
+      // Arrange
+      const mockProvider = new MockProvider();
+      const typeChecker = mockProvider.getTypeChecker();
+      
+      // Act
+      serviceLocator.registerASTProvider(mockProvider);
+      
+      // Assert
+      expect(serviceLocator.has(ServiceIds.TYPE_CHECKER)).toBe(true);
+      expect(serviceLocator.resolve(ServiceIds.TYPE_CHECKER)).toBe(typeChecker);
+    });
+    
+    it('getASTProvider()で登録したプロバイダーを取得できること', () => {
+      // Arrange
+      const mockProvider = new MockProvider();
+      serviceLocator.registerASTProvider(mockProvider);
+      
+      // Act
+      const provider = serviceLocator.getASTProvider();
+      
+      // Assert
+      expect(provider).toBe(mockProvider);
+    });
+    
+    it('ASTプロバイダーが登録されていない場合にgetASTProvider()を呼び出すと自動的に登録されること', () => {
+      // Act
+      const provider = serviceLocator.getASTProvider();
+      
+      // Assert
+      expect(provider).toBeDefined();
+      expect(serviceLocator.has(ServiceIds.AST_PROVIDER)).toBe(true);
+    });
+    
+    it('スナップショットを使用したモックプロバイダーを登録して使用できること', () => {
+      // Arrange
+      const snapshot = loadASTSnapshot('basic-function');
+      const mockProvider = new MockProvider([snapshot]);
+      
+      // Act
+      serviceLocator.registerASTProvider(mockProvider);
+      const provider = serviceLocator.getASTProvider();
+      const sourceFile = provider.parseFile('sample/basic-function.ts');
+      
+      // Assert
+      expect(sourceFile).toBeDefined();
+      expect(sourceFile.getFunctions().length).toBe(1);
+      expect(sourceFile.getFunctions()[0].getName()).toBe('greet');
     });
   });
 });

@@ -6,6 +6,8 @@
  */
 
 import { ServiceLocator as IServiceLocator } from '../types';
+import { IASTProvider } from './ast/interfaces/IASTProvider';
+import { createASTProvider } from './ast/factories/ASTProviderFactory';
 
 /**
  * サービスロケーター実装
@@ -88,6 +90,32 @@ export class ServiceLocator implements IServiceLocator {
   public clear(): void {
     this.services.clear();
   }
+  
+  /**
+   * ASTプロバイダーを登録する
+   * @param provider 登録するASTプロバイダー（省略時はデフォルトプロバイダーを生成）
+   */
+  public registerASTProvider(provider?: IASTProvider): void {
+    const astProvider = provider || createASTProvider();
+    this.register(ServiceIds.AST_PROVIDER, astProvider);
+    
+    // 型チェッカーも同時に登録（互換性のため）
+    if (!this.has(ServiceIds.TYPE_CHECKER)) {
+      this.register(ServiceIds.TYPE_CHECKER, astProvider.getTypeChecker());
+    }
+  }
+  
+  /**
+   * ASTプロバイダーを取得する
+   * @returns 登録されたASTプロバイダー
+   * @throws ASTプロバイダーが登録されていない場合にエラーを投げる
+   */
+  public getASTProvider(): IASTProvider {
+    if (!this.has(ServiceIds.AST_PROVIDER)) {
+      this.registerASTProvider();
+    }
+    return this.resolve<IASTProvider>(ServiceIds.AST_PROVIDER);
+  }
 }
 
 /**
@@ -98,6 +126,7 @@ export const ServiceIds = {
   // コアサービス
   LOGGER: 'logger',
   TYPE_CHECKER: 'typeChecker',
+  AST_PROVIDER: 'astProvider',
   
   // 解析器
   URL_PARSER: 'urlParser',
