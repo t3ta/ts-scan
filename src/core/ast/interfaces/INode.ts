@@ -26,6 +26,49 @@ export interface INodeDiagnostics {
    * @returns ノードの名前（識別子など）
    */
   getName?(): string | undefined;
+
+  /**
+   * 初期化子を取得する
+   * @returns 初期化子ノード
+   */
+  getInitializer?(): INode | undefined;
+
+  /**
+   * リテラル値を取得する
+   * @returns リテラル値
+   */
+  getLiteralValue?(): string;
+
+  /**
+   * プロパティを取得する
+   * @param name プロパティ名
+   * @returns プロパティノード
+   */
+  getProperty?(name: string): INode | undefined;
+
+  /**
+   * プロパティ一覧を取得する
+   * @returns プロパティノードの配列
+   */
+  getProperties?(): INode[];
+
+  /**
+   * テンプレートの先頭部分を取得する
+   * @returns テンプレートヘッド
+   */
+  getHead?(): INode;
+
+  /**
+   * テンプレートスパンを取得する
+   * @returns テンプレートスパンノードの配列
+   */
+  getTemplateSpans?(): INode[];
+
+  /**
+   * ボディを取得する
+   * @returns 関数のボディノード
+   */
+  getBody?(): INode | undefined;
 }
 
 /**
@@ -54,6 +97,9 @@ export enum NodeKind {
   NumericLiteral,
   Identifier = 9,
   ArrowFunction = 30,
+  TemplateExpression,
+  PropertyAssignment,
+  ShorthandPropertyAssignment,
   
   // 文
   ExpressionStatement,
@@ -64,6 +110,15 @@ export enum NodeKind {
   // インポート/エクスポート
   ImportDeclaration,
   ExportDeclaration = 7,
+  
+  // リテラル
+  TrueLiteral,
+  FalseLiteral,
+  NullLiteral,
+  NoSubstitutionTemplateLiteral,
+  
+  // パラメータ
+  ParameterDeclaration,
   
   // その他
   Unknown

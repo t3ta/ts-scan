@@ -1,4 +1,4 @@
-import { Node, SyntaxKind, SourceFile, Expression, ParameterDeclaration } from 'ts-morph';
+import { Node, SyntaxKind, SourceFile, Expression, ParameterDeclaration, TypeChecker } from 'ts-morph';
 import { ISourceFile } from '../../core/ast/interfaces/ISourceFile';
 import { INode, NodeKind } from '../../core/ast/interfaces/INode';
 import { logger } from '../Logger';
@@ -17,6 +17,24 @@ export interface TypeAnnotationInfo {
 
 export class NodeExtractorsExtended {
   /**
+   * INodeインターフェースか判定する型ガード関数
+   * @param node 対象ノード
+   * @returns INodeインターフェースであればtrue
+   */
+  private static isINode(node: Node | INode): node is INode {
+    return 'isKind' in node && typeof node.isKind === 'function';
+  }
+
+  /**
+   * 型安全なノード変換（互換性問題用）
+   * @param node INodeまたはNode
+   * @returns 元のノード（型キャスト）
+   */
+  private static asNode(node: Node | INode): any {
+    // 型互換性の問題を解決するためにanyにキャスト
+    return node;
+  }
+  /**
    * モジュールパスを解決する
    * @param sourceFilePath ソースファイルパス
    * @param moduleSpecifier モジュール指定子
@@ -31,7 +49,7 @@ export class NodeExtractorsExtended {
    */
   public static extractJsonContentFromBody(node: Node | INode): { [key: string]: any } | undefined {
     // INodeの場合
-    if ('isKind' in node && typeof node.isKind === 'function') {
+    if (this.isINode(node)) {
       if (!node.isKind(NodeKind.ObjectLiteralExpression)) {
         return undefined;
       }
@@ -176,7 +194,7 @@ export class NodeExtractorsExtended {
    */
   public static getNodeLocation(node: Node | INode): { line: number; column: number; sourceFile: string } {
     // INodeの場合
-    if ('getLocation' in node && typeof node.getLocation === 'function') {
+    if (this.isINode(node) && node.getLocation) {
       const location = node.getLocation();
       const sourceFile = node.getSourceFile();
 
@@ -208,7 +226,7 @@ export class NodeExtractorsExtended {
     if (!node) return null;
 
     // INodeの場合
-    if ('isKind' in node && typeof node.isKind === 'function') {
+    if (this.isINode(node)) {
       if (node.isKind(NodeKind.StringLiteral)) {
         const text = node.getText();
         // クォートを取り除く
@@ -265,7 +283,7 @@ export class NodeExtractorsExtended {
    */
   public static extractPropertyValue(node: Node | INode, propertyName: string): Expression | INode | undefined {
     // INodeの場合
-    if ('isKind' in node && typeof node.isKind === 'function') {
+    if (this.isINode(node)) {
       if (!node.isKind(NodeKind.ObjectLiteralExpression)) {
         return undefined;
       }
@@ -316,7 +334,7 @@ export class NodeExtractorsExtended {
    */
   public static extractObjectProperties(node: Node | INode): ObjectProperty[] {
     // INodeの場合
-    if ('isKind' in node && typeof node.isKind === 'function') {
+    if (this.isINode(node)) {
       if (!node.isKind(NodeKind.ObjectLiteralExpression)) {
         return [];
       }
@@ -415,7 +433,7 @@ export class NodeExtractorsExtended {
    */
   public static detectResponseTransformation(node: Node | INode): boolean {
     // INodeの場合
-    if ('isKind' in node && typeof node.isKind === 'function') {
+    if (this.isINode(node)) {
       if (node.isKind(NodeKind.Block)) {
         // ブロック内のステートメント数を確認
         const children = node.getChildren();
@@ -471,13 +489,13 @@ export class NodeExtractorsExtended {
     let current = node;
 
     // INodeの場合
-    if ('getExpression' in current && typeof current.getExpression === 'function') {
+    if (this.isINode(current)) {
       while (current) {
         chain.push(current);
 
         // コール式の場合
         if (current.isKind(NodeKind.CallExpression)) {
-          const expression = current.getExpression();
+          const expression = current.getExpression?.();
           if (expression) {
             current = expression;
           } else {
@@ -486,7 +504,7 @@ export class NodeExtractorsExtended {
         }
         // プロパティアクセス式の場合
         else if (current.isKind(NodeKind.PropertyAccessExpression)) {
-          const expression = current.getExpression();
+          const expression = current.getExpression?.();
           if (expression) {
             current = expression;
           } else {
@@ -499,16 +517,23 @@ export class NodeExtractorsExtended {
       }
     }
     // ts-morphのNodeの場合（元の実装）
-    else if (current instanceof Node) {
-      while (Node.isCallExpression(current as Node) || Node.isPropertyAccessExpression(current as Node)) {
-        chain.push(current);
+    else {
+      // 型安全に処理するためのキャスト
+      const tsNode = this.asNode(current) as Node;
+      let currentNode: Node = tsNode;
+      
+      while (Node.isCallExpression(currentNode) || Node.isPropertyAccessExpression(currentNode)) {
+        chain.push(currentNode);
 
-        if (Node.isCallExpression(current as Node)) {
-          current = (current as any).getExpression();
+        if (Node.isCallExpression(currentNode)) {
+          currentNode = currentNode.getExpression();
         } else {
-          current = (current as any).getExpression();
+          currentNode = currentNode.getExpression();
         }
       }
+      
+      // 最後の要素も追加
+      chain.push(currentNode);
     }
 
     return chain;
@@ -519,9 +544,14 @@ export class NodeExtractorsExtended {
    */
   public static extractCallbackBody(node: Node | INode): Node | INode | undefined {
     // INodeの場合
-    if ('isKind' in node && typeof node.isKind === 'function') {
+    if (this.isINode(node)) {
       if (node.isKind(NodeKind.ArrowFunction)) {
-        // ボディを取得（テキスト解析による簡易実装）
+        // ボディメソッドが実装されている場合
+        if (node.getBody) {
+          return node.getBody();
+        }
+
+        // メソッドがない場合はテキスト解析で代用
         const text = node.getText();
         const arrowIndex = text.indexOf('=>');
 
@@ -560,7 +590,7 @@ export class NodeExtractorsExtended {
    */
   public static extractReturnType(node: Node | INode): string | undefined {
     // INodeの場合
-    if ('isKind' in node && typeof node.isKind === 'function') {
+    if (this.isINode(node)) {
       const parentFunc = NodeTraversal.findFirstAncestor(
         node,
         n => n.isKind(NodeKind.FunctionDeclaration) || n.isKind(NodeKind.MethodDeclaration)
@@ -599,7 +629,7 @@ export class NodeExtractorsExtended {
    */
   public static findAwaitExpression(node: Node | INode): Node | INode | undefined {
     // INodeの場合
-    if ('isKind' in node && typeof node.isKind === 'function') {
+    if (this.isINode(node)) {
       return NodeTraversal.findFirstAncestor(
         node,
         // AwaitExpressionがNodeKind列挙型に定義されていない場合のフォールバック
@@ -619,7 +649,7 @@ export class NodeExtractorsExtended {
    */
   public static findAssignmentExpression(node: Node | INode): Node | INode | undefined {
     // INodeの場合
-    if ('isKind' in node && typeof node.isKind === 'function') {
+    if (this.isINode(node)) {
       return NodeTraversal.findFirstAncestor(
         node,
         n => n.getText().includes('=') && !n.getText().includes('=>')
@@ -630,7 +660,7 @@ export class NodeExtractorsExtended {
     return NodeTraversal.findFirstAncestor(
       node,
       n => n.getKind() === SyntaxKind.BinaryExpression &&
-        n.getFirstDescendantByKind(SyntaxKind.EqualsToken) !== undefined
+        n.getFirstDescendantByKind?.(SyntaxKind.EqualsToken) !== undefined
     );
   }
 
@@ -639,7 +669,7 @@ export class NodeExtractorsExtended {
    */
   public static extractVariableTypeAnnotation(node: Node | INode): string | undefined {
     // INodeの場合
-    if ('isKind' in node && typeof node.isKind === 'function') {
+    if (this.isINode(node)) {
       if (node.isKind(NodeKind.VariableDeclaration)) {
         // テキスト解析による型抽出
         const text = node.getText();
@@ -691,7 +721,7 @@ export class NodeExtractorsExtended {
     const typeInfos: TypeAnnotationInfo[] = [];
 
     // INodeの場合
-    if ('isKind' in node && typeof node.isKind === 'function') {
+    if (this.isINode(node)) {
       if (node.isKind(NodeKind.VariableDeclaration) ||
         (node.getKind() === NodeKind.Unknown && node.getText().includes(':'))) {
 
@@ -742,7 +772,7 @@ export class NodeExtractorsExtended {
    */
   public static inferNodeContext(node: Node | INode): string {
     // INodeの場合
-    if ('isKind' in node && typeof node.isKind === 'function') {
+    if (this.isINode(node)) {
       // 関数コンテキストを探す
       const functionContext = NodeTraversal.findFirstAncestor(
         node,
@@ -873,5 +903,37 @@ export class NodeExtractorsExtended {
 
     const sourceFile = node.getSourceFile();
     return sourceFile.getBaseName().replace(/\.[^/.]+$/, '');
+  }
+
+  /**
+   * TypeCheckerを使用して型情報を取得する関数
+   * @param node 対象ノード
+   * @param typeChecker 利用するTypeChecker
+   * @returns 型名または空文字
+   */
+  public static getTypeFromChecker(node: Node | INode, typeChecker: TypeChecker): string {
+    try {
+      // INodeの場合は内部ノードを取得
+      if (this.isINode(node)) {
+        if (typeof node.getInternalNode === 'function') {
+          const internalNode = node.getInternalNode();
+          // 内部ノードが存在すればTypeCheckerで型を取得
+          if (internalNode) {
+            const type = typeChecker.getTypeAtLocation(internalNode);
+            return type ? type.getText() : '';
+          }
+        }
+        // getInternalNodeメソッドが実装されていない場合は失敗
+        return '';
+      }
+
+      // ts-morph Nodeの場合は直接TypeCheckerを使用
+      const type = typeChecker.getTypeAtLocation(node);
+      return type ? type.getText() : '';
+    } catch (error) {
+      // 型取得エラーは無視して空文字を返す
+      logger.warn(`Type checker error: ${error instanceof Error ? error.message : String(error)}`);
+      return '';
+    }
   }
 }
