@@ -5,6 +5,7 @@
 - プロジェクトベースコードの確認完了
 - Jestテスト環境が設定されている（`jest.config.js`）
 - TypeScriptとJestの連携設定（`ts-jest`）
+- ts-mockito を活用したテスト実装
 - npm scriptsにテスト関連コマンドが設定済み
   - `npm test`: テスト実行
   - `npm run test:watch`: ウォッチモードでのテスト実行
@@ -13,22 +14,28 @@
   - `tests/`ルートディレクトリ
   - `tests/core/`、`tests/detectors/`、`tests/reporters/`、`tests/utils/`サブディレクトリ
   - `tests/fixtures/`、`tests/helpers/`ユーティリティディレクトリ
-- 最初のユニットテストファイル`ServiceLocator.test.ts`を実装中
+- コアコンポーネントのテスト実装完了
+  - `ServiceLocator.test.ts` の実装完了
+  - `StrategyRegistry.test.ts` の実装完了
+  - `AnalyzerEngine.test.ts` の実装完了
+- テスト用モックヘルパーの実装完了（`tests/helpers/mocks.ts`）
 
 ## 未実装の機能や残作業
 
 ### 高優先度
 
 - [x] `tests`ディレクトリの作成とベース構造の整備
-- [ ] `tests/core/ServiceLocator.test.ts`ファイルの実装完了
-- [ ] `tests/core/AnalyzerEngine.test.ts`ファイルの作成と初期テスト
-- [ ] `tests/helpers`ディレクトリとユーティリティ関数の作成
-- [ ] `tests/fixtures`ディレクトリとテストデータの作成
+- [x] `tests/core/ServiceLocator.test.ts`ファイルの実装完了
+- [x] `tests/core/StrategyRegistry.test.ts`ファイルの実装完了
+- [x] `tests/core/AnalyzerEngine.test.ts`ファイルの作成と初期テスト
+- [x] `tests/helpers`ディレクトリとユーティリティ関数の作成
+- [x] `tests/fixtures`ディレクトリとテストデータの作成
+- [x] `tests/detectors`ディレクトリと各検出器のテスト作成
 
 ### 中優先度
 
-- [ ] `tests/core/StrategyRegistry.test.ts`ファイルの作成
-- [ ] `tests/detectors`ディレクトリと各検出器のテスト作成
+- [x] `tests/core/StrategyRegistry.test.ts`ファイルの作成
+- [x] `tests/detectors`ディレクトリと各検出器のテスト作成
 - [ ] `tests/reporters`ディレクトリとレポーター機能のテスト作成
 - [ ] CI環境でのテスト実行設定
 
@@ -40,13 +47,15 @@
 
 ## 現在のステータス
 
-- 実装段階：テストディレクトリ構造を作成し、最初のテスト（`ServiceLocator.test.ts`）を実装中
-- テスト駆動開発（TDD）アプローチに従い、まず失敗するテストを作成中
-- 最初のコアコンポーネント（ServiceLocator）のテストカバレッジを向上させるべく作業中
+- 実装段階：コア機能（`ServiceLocator`、`StrategyRegistry`、`AnalyzerEngine`）および検出器モジュール（`AxiosDetectionStrategy`）のテスト実装完了
+- ts-mockitoを活用したモックフレームワークの導入により、より堅牢で型安全なテストを実装
+- language-serverを活用した型エラーの検出と修正を実施
+- TDDアプローチに従い、テスト -> 実装 -> リファクタリングのサイクルを実践中
+- 次フェーズではレポーターモジュールのテストに着手予定
 
 ## 既知の問題点
 
-- 複雑な依存関係を持つコンポーネントのテスト方法を検討中
-- モジュール間の結合度が高い部分があり、単体テストの分離が難しい場合がある
-- 既存コードの一部にテスタビリティの低い設計がある可能性
-- `ServiceLocator.test.ts`の実装は途中で中断されているため、完成させる必要がある
+- 複雑な依存関係を持つコンポーネントのテストについては、ts-mockitoを活用して効率的に対応
+- モジュール間の結合度が高い部分は、インターフェース経由でのモック化により分離テストを実現
+- `AnalyzerEngine`のテストではファイルシステムや外部依存をモック化する必要があるが、現状対応済み
+- テスト実行環境での外部依存性（ts-morph、ファイルシステム等）はJestのモック機能で適切に分離
