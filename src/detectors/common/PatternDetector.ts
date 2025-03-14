@@ -5,7 +5,9 @@
  * Command/Visitorパターンに基づき、特定の条件に合致するノードを検出し処理します。
  */
 
-import { Node, SourceFile, TypeChecker, SyntaxKind } from 'ts-morph';
+import { TypeChecker, SyntaxKind } from 'ts-morph';
+import { INode } from '../../core/ast/interfaces/INode';
+import { ISourceFile } from '../../core/ast/interfaces/ISourceFile';
 import { EndpointInfo, DetectionContext, EndpointPatternDetector } from '../../types';
 import { logger } from '../../utils/Logger';
 import { NodeTraversal } from '../../utils/ast/NodeTraversal';
@@ -24,7 +26,7 @@ export abstract class BasePatternDetector implements EndpointPatternDetector {
    * @param node 対象ノード
    * @returns パターン一致の場合true
    */
-  public abstract canHandle(node: Node): boolean;
+  public abstract canHandle(node: INode): boolean;
   
   /**
    * パターンに一致したノードからエンドポイント情報を抽出
@@ -32,7 +34,7 @@ export abstract class BasePatternDetector implements EndpointPatternDetector {
    * @param context 検出コンテキスト
    * @returns 抽出されたエンドポイント情報配列
    */
-  public abstract extractEndpoints(node: Node, context: DetectionContext): EndpointInfo[];
+  public abstract extractEndpoints(node: INode, context: DetectionContext): EndpointInfo[];
   
   /**
    * ソースファイル内の該当するパターンをすべて検出して処理
@@ -40,7 +42,7 @@ export abstract class BasePatternDetector implements EndpointPatternDetector {
    * @param context 検出コンテキスト
    * @returns 検出・抽出されたエンドポイント情報配列
    */
-  public detectAndExtract(sourceFile: SourceFile, context: DetectionContext): EndpointInfo[] {
+  public detectAndExtract(sourceFile: ISourceFile, context: DetectionContext): EndpointInfo[] {
     const startTime = Date.now();
     logger.debug(`[${this.patternName}] パターン検出開始: ${sourceFile.getFilePath()}`);
     
@@ -83,7 +85,7 @@ export abstract class BasePatternDetector implements EndpointPatternDetector {
    * @param sourceFile 対象ソースファイル
    * @param context 検出コンテキスト
    */
-  protected beforeDetection(_sourceFile: SourceFile, _context: DetectionContext): void {
+  protected beforeDetection(_sourceFile: ISourceFile | SourceFile, _context: DetectionContext): void {
     // デフォルトでは何もしない
   }
   
@@ -95,7 +97,7 @@ export abstract class BasePatternDetector implements EndpointPatternDetector {
    */
   protected afterDetection(
     _endpoints: EndpointInfo[], 
-    _sourceFile: SourceFile, 
+    _sourceFile: ISourceFile | SourceFile, 
     _context: DetectionContext
   ): void {
     // デフォルトでは何もしない
@@ -107,7 +109,7 @@ export abstract class BasePatternDetector implements EndpointPatternDetector {
    * @param handler ノード処理ハンドラ
    * @returns 処理されたノード数
    */
-  protected traverseNodes(node: Node, handler: (node: Node) => boolean): number {
+  protected traverseNodes(node: INode, handler: (node: INode) => boolean): number {
     let processedCount = 0;
     
     // 自分自身を処理
@@ -129,8 +131,8 @@ export abstract class BasePatternDetector implements EndpointPatternDetector {
    * @param sourceFile 対象ソースファイル
    * @returns 一致するノードの配列
    */
-  protected collectMatchingNodes(sourceFile: SourceFile): Node[] {
-    const matchingNodes: Node[] = [];
+  protected collectMatchingNodes(sourceFile: ISourceFile): INode[] {
+    const matchingNodes: INode[] = [];
     
     this.traverseNodes(sourceFile, (node) => {
       if (this.canHandle(node)) {
@@ -150,9 +152,9 @@ export abstract class BasePatternDetector implements EndpointPatternDetector {
    * @returns 親コンテキスト情報、未検出時はundefined
    */
   protected findParentContext(
-    node: Node,
-    predicate: (node: Node) => boolean
-  ): { node: Node; name?: string } | undefined {
+    node: INode,
+    predicate: (node: INode) => boolean
+  ): { node: INode; name?: string } | undefined {
     const parent = NodeTraversal.findFirstAncestor(node, predicate);
     
     if (!parent) {
@@ -300,7 +302,7 @@ export abstract class BasePatternDetector implements EndpointPatternDetector {
    * @param typeChecker タイプチェッカー
    * @returns 型情報文字列、取得失敗時は'unknown'
    */
-  protected safeGetTypeString(node: Node, typeChecker: TypeChecker): string {
+  protected safeGetTypeString(node: INode, typeChecker: TypeChecker): string {
     try {
       const type = typeChecker.getTypeAtLocation(node);
       return type.getText();
@@ -317,8 +319,8 @@ export abstract class BasePatternDetector implements EndpointPatternDetector {
    * @returns 変換結果または変換失敗時はデフォルト値
    */
   protected safeConvert<T, D>(
-    node: Node | undefined, 
-    converterFn: (n: Node) => T, 
+    node: INode | undefined, 
+    converterFn: (n: INode) => T, 
     defaultValue: D
   ): T | D {
     if (!node) return defaultValue;

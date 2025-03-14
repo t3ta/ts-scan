@@ -23,6 +23,7 @@ import { logger } from '../utils/Logger';
 import { StrategyRegistry } from './StrategyRegistry';
 import { calculateStatistics } from '../utils/statistics';
 import { validateProjectStructure, findTsConfigFile, generateTemporaryTsConfig, isDirectory, isFile } from '../utils/fs-helper';
+import { createASTProvider } from './ast/factories/ASTProviderFactory';
 
 /**
  * エンドポイント解析エンジン
@@ -42,7 +43,7 @@ export class AnalyzerEngine {
    */
   constructor(
     configuration: AnalysisConfiguration, 
-    serviceLocator?: ServiceLocator
+    serviceLocator?: ServiceLocatorImpl | ServiceLocator
   ) {
     this.configuration = configuration;
     this.serviceLocator = serviceLocator || ServiceLocatorImpl.getInstance();
@@ -52,11 +53,22 @@ export class AnalyzerEngine {
       const tsConfigPath = this.findOrCreateTsConfigPath();
       
       // ASTプロバイダーの取得または登録
-      if (this.serviceLocator.has(ServiceIds.AST_PROVIDER)) {
-        this.astProvider = this.serviceLocator.getASTProvider();
+      // ServiceLocatorImplの機能を使用してASTProviderを取得
+      const locatorWithASTSupport = this.serviceLocator as ServiceLocatorImpl;
+      
+      if (locatorWithASTSupport.has?.(ServiceIds.AST_PROVIDER)) {
+        this.astProvider = locatorWithASTSupport.getASTProvider?.() || 
+                          locatorWithASTSupport.resolve<IASTProvider>(ServiceIds.AST_PROVIDER);
+      } else if (locatorWithASTSupport.registerASTProvider) {
+        locatorWithASTSupport.registerASTProvider();
+        this.astProvider = locatorWithASTSupport.getASTProvider?.() || 
+                          locatorWithASTSupport.resolve<IASTProvider>(ServiceIds.AST_PROVIDER);
       } else {
-        this.serviceLocator.registerASTProvider();
-        this.astProvider = this.serviceLocator.getASTProvider();
+        // 拡張機能がない場合は直接作成して登録
+        this.astProvider = createASTProvider();
+        if (locatorWithASTSupport.register) {
+          locatorWithASTSupport.register(ServiceIds.AST_PROVIDER, this.astProvider);
+        }
       }
     } catch (error: unknown) {
       logger.error(`プロジェクト初期化中にエラーが発生: ${error}`);

@@ -5,8 +5,9 @@
  * 各モジュールは必要に応じて独自の型を定義または拡張することがあります。
  */
 
-import { TypeChecker } from 'ts-morph';
+import { TypeChecker, Node } from 'ts-morph';
 import { ISourceFile } from './core/ast/interfaces/ISourceFile';
+import { INode } from './core/ast/interfaces/INode';
 
 /**
  * サポートするHTTPメソッド
@@ -187,7 +188,7 @@ export interface EndpointPatternDetector {
    * @param node 対象ノード
    * @returns パターンが適用可能かどうか
    */
-  canHandle(node: Node): boolean;
+  canHandle(node: INode): boolean;
   
   /**
    * エンドポイント情報の抽出
@@ -195,7 +196,15 @@ export interface EndpointPatternDetector {
    * @param context 検出コンテキスト
    * @returns 抽出されたエンドポイント情報配列
    */
-  extractEndpoints(node: Node, context: DetectionContext): EndpointInfo[];
+  extractEndpoints(node: INode, context: DetectionContext): EndpointInfo[];
+
+  /**
+   * ソースファイル内の該当するパターンをすべて検出して処理
+   * @param sourceFile 対象ソースファイル
+   * @param context 検出コンテキスト
+   * @returns 検出・抽出されたエンドポイント情報配列
+   */
+  detectAndExtract(sourceFile: ISourceFile, context: DetectionContext): EndpointInfo[];
 }
 
 /**
@@ -207,7 +216,7 @@ export interface IUrlParser {
    * @param node 対象ノード
    * @returns URL情報（パスとHTTPメソッド）
    */
-  parseEndpointUrl(node: Node): { path: string | null; method: HttpMethod };
+  parseEndpointUrl(node: INode): { path: string | null; method: HttpMethod };
   
   /**
    * 完全URLパスの構築
@@ -253,7 +262,7 @@ export interface ITypeHelper {
    * @param node 対象ノード
    * @returns 推論されたパラメータタイプ
    */
-  inferParameterType(node: Node): ParameterType;
+  inferParameterType(node: INode): ParameterType;
   
   /**
    * レスポンス処理情報の抽出
@@ -261,7 +270,7 @@ export interface ITypeHelper {
    * @param location 使用箇所
    * @returns 抽出されたレスポンス処理情報
    */
-  extractResponseHandling(node: Node, location: UsageLocation): ResponseUsage[];
+  extractResponseHandling(node: INode, location: UsageLocation): ResponseUsage[];
 }
 
 /**

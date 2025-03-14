@@ -29,6 +29,10 @@ feature/ts-morph-dep ブランチにおいて、ts-morphへの直接依存を抽
 - スナップショット機構の基本実装
 - ServiceLocator拡張とファクトリークラスの実装
 - AnalyzerEngineクラスのリファクタリング
+- ServiceLocatorテストの修正と成功確認
+- StrategyRegistryテストの修正と成功確認
+- PatternDetectorのインターフェース修正
+- AxiosDetectionStrategy.test.ts のインターフェース変更（部分的に完了）
 
 テスト実行を開始したところ、以下の課題が発見されている：
 
@@ -36,6 +40,7 @@ feature/ts-morph-dep ブランチにおいて、ts-morphへの直接依存を抽
    - SourceFileとISourceFileの混在
    - NodeとINodeの参照不整合
    - ts-morphの型とインターフェース層の型の変換処理
+   - NodeExtractorsExtendedの`getExpression`、`getArguments`メソッドがINodeに実装されていない問題
 
 2. **ts-morphバージョン依存の問題**
    - 一部メソッド（isDotDotDot()等）の有無による互換性問題
@@ -48,11 +53,19 @@ feature/ts-morph-dep ブランチにおいて、ts-morphへの直接依存を抽
 
 ## 直近の変更点
 
-- 全インターフェース層の実装
+- 全インターフェース層の実装完了
 - アダプター層実装の基本部分完成
 - モックプロバイダー、スナップショット機構の実装
-- テスト実行時のエラー解消作業（進行中）
-- 型不整合解消のためのインターフェース調整
+- MockNodeのfindDescendants機能の大幅改良（自己参照問題の解決）
+- NodeKind列挙体の値をスナップショットと整合させる修正
+- IFunctionインターフェース実装のMockNodeへの追加
+- ServiceLocatorとASTProviderFactoryのテスト成功
+- インターフェース拡張と実装
+  - INodeDiagnosticsインターフェースの追加とINodeへの継承
+  - MockNodeへのgetExpression、getArgumentsメソッドの実装追加
+  - NodeExtractorsExtendedとNodePredicatesをINode対応に修正
+- `AxiosDetectionStrategy.ts` からts-morphの直接参照を排除し、抽象インターフェースで置き換え完了
+- NodePredicates.isMethodCallの使用箇所を修正し、適切な代替実装を導入
 
 ## 今アクティブな決定事項
 
@@ -74,37 +87,26 @@ feature/ts-morph-dep ブランチにおいて、ts-morphへの直接依存を抽
 
 ## 今アクティブな課題
 
-1. **インターフェース層の詳細設計**
-   - 必要十分なメソッドセットの選定と実装
-   - 汎用性とシンプルさのバランス
+1. **インターフェース層の完成実装**
+   - ts-morphのNodeとINodeの間の互換性まだ完全ではない
+   - 一部のNode特有メソッドへの対応が必要
 
-2. **アダプターの実装詳細**
-   - ts-morphの細かな挙動をどこまで抽象化するか
-   - バージョン間の差異を吸収する方法
+2. **検出器モジュールの継続リファクタリング**
+   - `FetchDetectionStrategy`、`RTKQueryDetectionStrategy`、`CustomApiClientStrategy` の改修
 
-3. **テスト戦略**
-   - 適切なスナップショットデータ設計
-   - テスト実行環境での安定性確保
-
-4. **リファクタリング範囲**
-   - 抽象化レイヤー以外のコード修正の範囲
-   - 段階的リファクタリングの進め方
+3. **テストスキップを解消するための調整**
 
 ## 次のステップ
 
-1. テスト実行環境の改善
-   - 現在のエラーを解消
-   - 全テストの修正と実行確認
+1. **残りの検出器モジュールのリファクタリング**
+   - `FetchDetectionStrategy` の修正
+   - `RTKQueryDetectionStrategy` の修正
+   - `CustomApiClientStrategy` の修正
+   
+2. **テストの修正と実行**
+   - `AxiosDetectionStrategy.test.ts` のスキップ解除
+   - 残りのテストファイルの修正
 
-2. 検出器モジュールのリファクタリング
-   - 抽象インターフェースを利用するように修正
-   - テストケースの調整
-
-3. スキップされたテストの有効化
-   - ts-morph依存が原因でスキップされていたテストの復活
-   - テスト安定性の確認
-
-4. ドキュメント整備
-   - 抽象化レイヤーの設計文書
-   - 使用パターンガイドライン
-   - テスト戦略の文書化
+3. **テストの安定化とカバレッジ向上**
+   - 全テストの実行確認
+   - テスト環境の安定化

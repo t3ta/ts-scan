@@ -6,6 +6,7 @@
  */
 
 import { Node, SyntaxKind } from 'ts-morph';
+import { INode, NodeKind } from '../../core/ast/interfaces/INode';
 
 /**
  * ノード判定述語ユーティリティクラス
@@ -17,7 +18,18 @@ export class NodePredicates {
    * @param methodName 検索するメソッド名
    * @returns 判定結果
    */
-  public static isMethodCall(node: Node, methodName: string): boolean {
+  public static isMethodCall(node: Node | INode, methodName: string): boolean {
+    // INodeの場合
+    if ('isKind' in node && typeof node.isKind === 'function') {
+      if (!node.isKind(NodeKind.PropertyAccessExpression)) return false;
+      // getNameメソッドが実装されている場合
+      if ('getName' in node && typeof node.getName === 'function') {
+        return node.getName() === methodName;
+      }
+      // テキスト検索を使用するフォールバック
+      return node.getText().endsWith('.' + methodName);
+    }
+    // ts-morph Nodeの場合
     if (!Node.isPropertyAccessExpression(node)) return false;
     return node.getName() === methodName;
   }

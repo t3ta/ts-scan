@@ -14,7 +14,7 @@ import {
   EndpointInfo,
   ServiceLocator as IServiceLocator
 } from '../../src/types';
-import { SourceFile } from 'ts-morph';
+import { ISourceFile } from '../../src/core/ast/interfaces/ISourceFile';
 import { logger } from '../../src/utils/Logger';
 
 // モックのロガーを設定
@@ -36,7 +36,7 @@ class MockStrategy implements EndpointDetectionStrategy {
     public readonly priority: number
   ) {}
   
-  public detect(_sourceFile: SourceFile, _context: DetectionContext): EndpointInfo[] {
+  public detect(_sourceFile: ISourceFile, _context: DetectionContext): EndpointInfo[] {
     return [];
   }
 }

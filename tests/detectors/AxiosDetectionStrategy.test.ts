@@ -6,7 +6,9 @@
  */
 
 import { mock, instance, when, anything } from 'ts-mockito';
-import { SourceFile, TypeChecker, SyntaxKind } from 'ts-morph';
+import { TypeChecker } from 'ts-morph';
+import { INode, NodeKind } from '../../src/core/ast/interfaces/INode';
+import { ISourceFile } from '../../src/core/ast/interfaces/ISourceFile';
 import { AxiosDetectionStrategy } from '../../src/detectors/http/AxiosDetectionStrategy';
 import { ServiceLocator, ServiceIds } from '../../src/core/ServiceLocator';
 import { 
@@ -46,7 +48,8 @@ interface IEndpointBuilder {
 
 describe('AxiosDetectionStrategy', () => {
   // テスト用の共通変数
-  let mockSourceFile: SourceFile;
+  let mockISourceFile: ISourceFile;
+  let mockINode: INode;
   let mockTypeChecker: TypeChecker;
   let mockServiceLocator: ServiceLocator;
   let mockEndpointBuilder: IEndpointBuilder;
@@ -68,18 +71,28 @@ describe('AxiosDetectionStrategy', () => {
   // 各テスト前の共通セットアップ
   beforeEach(() => {
     // モックオブジェクトの作成
-    mockSourceFile = mock<SourceFile>();
+    mockISourceFile = mock<ISourceFile>();
+    mockINode = mock<INode>();
     mockTypeChecker = mock<TypeChecker>();
     mockServiceLocator = mock<ServiceLocator>();
     mockEndpointBuilder = mock<IEndpointBuilder>();
     
-    // モックの設定
-    when(mockSourceFile.getFilePath() as any).thenReturn(sampleFilePath);
-    when(mockSourceFile.getFullText()).thenReturn(sampleFileContent);
+    // モックの設定 - ISourceFile
+    when(mockISourceFile.getFilePath()).thenReturn(sampleFilePath);
+    when(mockISourceFile.getText()).thenReturn(sampleFileContent);
+    when(mockISourceFile.getFileName()).thenReturn(path.basename(sampleFilePath));
     
-    // AST処理のモック - 特定のテストケースで必要に応じてオーバーライド
-    when(mockSourceFile.forEachChild(anything())).thenReturn(undefined);
-    when(mockSourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)).thenReturn([]);
+    // ISourceFileの追加メソッド実装
+    when(mockISourceFile.findNodes(anything())).thenReturn([]);
+    when(mockISourceFile.getRootNode()).thenReturn(instance(mockINode));
+    
+    // INodeのメソッド実装
+    when(mockINode.getKind()).thenReturn(NodeKind.SourceFile);
+    when(mockINode.getText()).thenReturn(sampleFileContent);
+    when(mockINode.getChildren()).thenReturn([]);
+    when(mockINode.findDescendants(anything(), anything())).thenReturn([]);
+    when(mockINode.isKind(anything())).thenReturn(false);
+    when(mockINode.getSourceFile()).thenReturn(instance(mockISourceFile));
     
     // サービスロケータの設定
     when(mockServiceLocator.resolve<IEndpointBuilder>(ServiceIds.ENDPOINT_BUILDER))
@@ -109,7 +122,7 @@ describe('AxiosDetectionStrategy', () => {
     
     // 検出コンテキストの準備
     context = {
-      sourceFile: instance(mockSourceFile),
+      sourceFile: instance(mockISourceFile),
       typeChecker: instance(mockTypeChecker),
       configuration: {
         targetDirectory: '/test',
@@ -133,11 +146,11 @@ describe('AxiosDetectionStrategy', () => {
     
     it('エラーハンドリングが機能すること', () => {
       // エラーを投げる検出器をシミュレート
-      when(mockSourceFile.getDescendantsOfKind(SyntaxKind.CallExpression))
+      when(mockINode.findDescendants(anything(), anything()))
         .thenThrow(new Error('テスト用エラー'));
       
       // テスト対象の実行
-      const result = strategy.detect(instance(mockSourceFile), context);
+      const result = strategy.detect(instance(mockISourceFile), context);
       
       // 検証
       expect(result).toEqual([]);
@@ -147,10 +160,10 @@ describe('AxiosDetectionStrategy', () => {
   
   // 注意: 実装の詳細に応じたテストケースの追加はts-morphの内部実装による制約があるため、
   // 下記の例はスケルトンとして提供し、実際のテスト実行ではスキップする
-  describe.skip('検出機能 (実際の実行ではスキップ)', () => {
+  describe('検出機能 (実際の実行ではスキップ)', () => {
     it('直接メソッド呼び出し (axios.get等) を検出できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
-      const result = strategy.detect(instance(mockSourceFile), context);
+      const result = strategy.detect(instance(mockISourceFile), context);
       
       // 検証例
       expect(result.length).toBeGreaterThanOrEqual(0);
@@ -158,7 +171,7 @@ describe('AxiosDetectionStrategy', () => {
     
     it('インスタンスメソッド呼び出し (instance.get等) を検出できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
-      const result = strategy.detect(instance(mockSourceFile), context);
+      const result = strategy.detect(instance(mockISourceFile), context);
       
       // 検証例
       expect(result.length).toBeGreaterThanOrEqual(0);
@@ -166,7 +179,7 @@ describe('AxiosDetectionStrategy', () => {
     
     it('リクエスト設定オブジェクト (axios(config)) を検出できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
-      const result = strategy.detect(instance(mockSourceFile), context);
+      const result = strategy.detect(instance(mockISourceFile), context);
       
       // 検証例
       expect(result.length).toBeGreaterThanOrEqual(0);

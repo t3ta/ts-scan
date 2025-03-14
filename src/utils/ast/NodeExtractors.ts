@@ -8,6 +8,7 @@
 // SyntaxKindは用途を明示するためにインポートしています
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Node, SyntaxKind, SourceFile, TypeChecker } from 'ts-morph';
+import { ISourceFile } from '../../core/ast/interfaces/ISourceFile';
 import { HttpMethod, UsageLocation } from '../../types';
 import { logger } from '../Logger';
 import { NodeTraversal } from './NodeTraversal';
@@ -256,7 +257,7 @@ export class NodeExtractors {
    * @param context コンテキスト情報
    * @returns 使用箇所情報
    */
-  public static createUsageLocation(node: Node, sourceFile: SourceFile, context?: string): UsageLocation {
+  public static createUsageLocation(node: Node, sourceFile: SourceFile | ISourceFile, context?: string): UsageLocation {
     // 関数や変数定義のコンテキストを探す
     if (!context) {
       const parent = NodeTraversal.findFirstAncestor(

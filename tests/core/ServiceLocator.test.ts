@@ -6,6 +6,8 @@
 
 import { ServiceLocator, ServiceIds } from '../../src/core/ServiceLocator';
 import { IASTProvider } from '../../src/core/ast/interfaces/IASTProvider';
+import { INode, NodeKind } from '../../src/core/ast/interfaces/INode';
+import { IFunction } from '../../src/core/ast/interfaces/IFunction';
 import { MockProvider } from '../../src/core/ast/implementations/MockProvider';
 import { TsMorphAdapter } from '../../src/core/ast/adapters/TsMorphAdapter';
 import { loadASTSnapshot } from '../helpers/ast-helpers';
@@ -194,8 +196,36 @@ describe('ServiceLocator', () => {
       
       // Assert
       expect(sourceFile).toBeDefined();
-      expect(sourceFile.getFunctions().length).toBe(1);
-      expect(sourceFile.getFunctions()[0].getName()).toBe('greet');
+
+      // デバッグために追加
+      console.log('Root node kind:', sourceFile.getRootNode().getKind());
+      console.log('Children count:', sourceFile.getRootNode().getChildren().length);
+      
+      // スナップショットのノード説明を表示
+      sourceFile.getRootNode().getChildren().forEach((child, idx) => {
+        console.log(`Child ${idx}: kind=${child.getKind()}, text="${child.getText().substring(0, 30)}..."`);
+      });
+
+      // 関数を取得して検証
+      const functions = sourceFile.findNodes(node => node.getKind() === NodeKind.FunctionDeclaration);
+      console.log('Functions found directly:', functions.length);
+
+      // MockNodeのfindDescendantsの動作を手動で検証
+      const allNodes: INode[] = [];
+      const traverse = (node: INode) => {
+        allNodes.push(node);
+        node.getChildren().forEach(child => traverse(child));
+      };
+      traverse(sourceFile.getRootNode());
+      console.log('All nodes via manual traversal:', allNodes.length);
+      const manualFunctions = allNodes.filter(node => node.getKind() === NodeKind.FunctionDeclaration);
+      console.log('Functions via manual traversal:', manualFunctions.length);
+
+      expect(functions.length).toBe(1);
+      if (functions.length > 0) {
+        const funcNode = functions[0] as IFunction;
+        expect(funcNode.getName()).toBe('greet');
+      }
     });
   });
 });

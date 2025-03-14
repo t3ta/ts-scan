@@ -5,7 +5,9 @@
  * Axiosの様々な呼び出しパターンに対応します。
  */
 
-import { Node, SourceFile, SyntaxKind } from 'ts-morph';
+// ts-morphの直接インポートを避け、抽象インターフェースのみを使用するのだ
+import { ISourceFile } from '../../core/ast/interfaces/ISourceFile';
+import { INode, NodeKind } from '../../core/ast/interfaces/INode';
 import { BaseDetectionStrategy } from '../common/BaseDetectionStrategy';
 import { BasePatternDetector } from '../common/PatternDetector';
 import { EndpointInfo, DetectionContext, HttpMethod, UsageLocation, ParameterUsage, ResponseUsage } from '../../types';
@@ -22,19 +24,19 @@ import { logger } from '../../utils/Logger';
 class AxiosDirectMethodCallDetector extends BasePatternDetector {
   readonly patternName = 'AxiosDirectMethodCall';
 
-  public canHandle(node: Node): boolean {
-    if (!node.isKind(SyntaxKind.CallExpression)) {
+  public canHandle(node: INode): boolean {
+    if (!node.isKind(NodeKind.CallExpression)) {
       return false;
     }
 
-    const expression = node.getExpression();
-    if (!expression.isKind(SyntaxKind.PropertyAccessExpression)) {
+    const expression = node.getExpression?.();
+    if (!expression || !expression.isKind(NodeKind.PropertyAccessExpression)) {
       return false;
     }
 
     // axios.get(), axios.post() 等のパターンを検出
-    const objectName = expression.getExpression().getText();
-    const methodName = expression.getName();
+    const objectName = expression.getExpression?.()?.getText() || '';
+    const methodName = (expression as any).getName?.() || '';
 
     return (
       objectName === 'axios' &&
@@ -42,22 +44,22 @@ class AxiosDirectMethodCallDetector extends BasePatternDetector {
     );
   }
 
-  public extractEndpoints(node: Node, context: DetectionContext): EndpointInfo[] {
-    if (!Node.isCallExpression(node)) {
+  public extractEndpoints(node: INode, context: DetectionContext): EndpointInfo[] {
+    if (!node.isKind(NodeKind.CallExpression)) {
       return [];
     }
 
     const callExpr = node;
     // getExpressionメソッドが存在するか確認して安全に呼び出す
-    const propExpr = Node.isCallExpression(callExpr) ? callExpr.getExpression() : null;
+    const propExpr = callExpr.getExpression?.();
 
     // HTTPメソッドを取得
-    const methodName = propExpr && propExpr.isKind(SyntaxKind.PropertyAccessExpression)
-      ? propExpr.getName().toUpperCase() as HttpMethod
+    const methodName = propExpr && propExpr.isKind(NodeKind.PropertyAccessExpression)
+      ? ((propExpr as any).getName?.() || 'get').toUpperCase() as HttpMethod
       : 'GET';
 
     // 引数を取得
-    const args = callExpr.isKind(SyntaxKind.CallExpression) ? callExpr.getArguments() : [];
+    const args = callExpr.getArguments?.() || [];
 
     if (args.length === 0) {
       return [];
@@ -77,7 +79,7 @@ class AxiosDirectMethodCallDetector extends BasePatternDetector {
     // データ/パラメータの抽出 (第2引数、オブジェクト)
     let params: ParameterUsage[] = [];
 
-    if (args.length > 1 && args[1].isKind(SyntaxKind.ObjectLiteralExpression)) {
+    if (args.length > 1 && args[1].isKind(NodeKind.ObjectLiteralExpression)) {
       const configObj = args[1];
 
       // paramsプロパティからクエリパラメータを抽出
@@ -127,8 +129,8 @@ class AxiosDirectMethodCallDetector extends BasePatternDetector {
     const methodChain = NodeExtractorsExtended.findMethodChain(node);
     if (methodChain) {
       for (const chainNode of methodChain) {
-        if (Node.isCallExpression(chainNode) && chainNode.getExpression().getText().endsWith('.then')) {
-          const thenArgs = chainNode.getArguments();
+        if (chainNode.isKind(NodeKind.CallExpression) && (chainNode.getExpression?.()?.getText() || '').endsWith('.then')) {
+          const thenArgs = chainNode.getArguments?.() || [];
 
           if (thenArgs.length > 0) {
             const callbackBody = NodeExtractorsExtended.extractCallbackBody(thenArgs[0]);
@@ -184,7 +186,7 @@ class AxiosDirectMethodCallDetector extends BasePatternDetector {
   /**
    * 使用箇所の詳細情報を作成
    */
-  private createUsageLocation(node: Node, sourceFile: SourceFile, context?: string): UsageLocation {
+  private createUsageLocation(node: INode, sourceFile: ISourceFile, context?: string): UsageLocation {
     // 行番号と列番号の安全な取得
     const lineNumber = 1;  // デフォルト値
     const columnNumber = 1;  // デフォルト値
@@ -214,18 +216,18 @@ class AxiosInstanceMethodCallDetector extends BasePatternDetector {
   /**
    * Axiosインスタンスメソッド呼び出しを検出
    */
-  public canHandle(node: Node): boolean {
-    if (!node.isKind(SyntaxKind.CallExpression)) {
+  public canHandle(node: INode): boolean {
+    if (!node.isKind(NodeKind.CallExpression)) {
       return false;
     }
 
-    const expression = node.getExpression();
-    if (!expression.isKind(SyntaxKind.PropertyAccessExpression)) {
+    const expression = node.getExpression?.();
+    if (!expression || !expression.isKind(NodeKind.PropertyAccessExpression)) {
       return false;
     }
 
-    const methodName = expression.getName().toLowerCase();
-    const objectExpr = expression.getExpression();
+    const methodName = (expression as any).getName?.().toLowerCase() || '';
+    const objectExpr = expression.getExpression?.();
 
     // HTTPメソッド名を持つメソッド呼び出しを検出
     if (!['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(methodName)) {
@@ -236,7 +238,7 @@ class AxiosInstanceMethodCallDetector extends BasePatternDetector {
     // 1. axios.create()の結果を変数に格納している場合
     // 2. import文でaxiosインスタンスを生成/インポートしている場合
     // 3. カスタムクライアントでaxios互換APIを提供している場合
-    const objText = objectExpr.getText();
+    const objText = objectExpr?.getText() || '';
 
     return (
       objText !== 'axios' && // 直接axios.get()は別のパターンでカバー
@@ -251,19 +253,23 @@ class AxiosInstanceMethodCallDetector extends BasePatternDetector {
   /**
    * Axiosインスタンスからエンドポイント情報を抽出
    */
-  public extractEndpoints(node: Node, context: DetectionContext): EndpointInfo[] {
+  public extractEndpoints(node: INode, context: DetectionContext): EndpointInfo[] {
+    if (!node.isKind(NodeKind.CallExpression)) {
+      return [];
+    }
+    
     const callExpr = node;
     // getExpressionメソッドが存在するか確認して安全に呼び出す
-    const propExpr = Node.isCallExpression(callExpr) ? callExpr.getExpression() : null;
+    const propExpr = callExpr.getExpression?.();
 
     // HTTPメソッドを取得
-    const methodName = propExpr && propExpr.isKind(SyntaxKind.PropertyAccessExpression)
-      ? propExpr.getName().toUpperCase() as HttpMethod
+    const methodName = propExpr && propExpr.isKind(NodeKind.PropertyAccessExpression)
+      ? ((propExpr as any).getName?.() || 'get').toUpperCase() as HttpMethod
       : 'GET';
 
     // インスタンス名を取得（ベースURLの推測に利用）
-    const instance = propExpr && propExpr.isKind(SyntaxKind.PropertyAccessExpression)
-      ? propExpr.getExpression()
+    const instance = propExpr && propExpr.isKind(NodeKind.PropertyAccessExpression)
+      ? propExpr.getExpression?.()
       : undefined;
 
     let baseUrl = '';
@@ -272,26 +278,29 @@ class AxiosInstanceMethodCallDetector extends BasePatternDetector {
     if (instance) {
       const instanceName = instance.getText();
 
-      // ソースファイル内でインスタンス生成を探す
-      const declarations = NodeExtractorsExtended.findVariableDeclarations?.(context.sourceFile, instanceName) || [];
+      // 変数宣言を探す - ISourceFileのfindNodesメソッドを使用
+      const declarations = context.sourceFile.findNodes(node => 
+        node.isKind(NodeKind.VariableDeclaration) && 
+        node.getText().includes(instanceName)
+      ) || [];
 
       for (const decl of declarations) {
         // 変数宣言から初期化子を安全に取得
-        const initializer = Node.isVariableDeclaration(decl) ? decl.getInitializer() : null;
+        const initializer = (decl as any).getInitializer?.();
 
-        if (initializer && Node.isCallExpression(initializer)) {
-          const expr = initializer.getExpression();
+        if (initializer && initializer.isKind(NodeKind.CallExpression)) {
+          const expr = initializer.getExpression?.();
           // 型安全なチェック
           const isAxiosCreate = expr &&
-                               Node.isPropertyAccessExpression(expr) &&
-                               expr.getName() === 'create' &&
-                               expr.getExpression().getText() === 'axios';
+                               expr.isKind(NodeKind.PropertyAccessExpression) &&
+                               (expr as any).getName?.() === 'create' &&
+                               expr.getExpression?.()?.getText() === 'axios';
 
           if (isAxiosCreate) {
             // axios.create({baseURL: '/api'}) のようなパターンを検出
-            const args = initializer.isKind(SyntaxKind.CallExpression) ? initializer.getArguments() : [];
+            const args = initializer.getArguments?.() || [];
 
-            if (args.length > 0 && args[0].isKind(SyntaxKind.ObjectLiteralExpression)) {
+            if (args.length > 0 && args[0].isKind(NodeKind.ObjectLiteralExpression)) {
               const configObj = args[0];
               const baseUrlNode = NodeExtractorsExtended.extractPropertyValue(configObj, 'baseURL');
 
@@ -309,7 +318,7 @@ class AxiosInstanceMethodCallDetector extends BasePatternDetector {
     }
 
     // 引数を取得
-    const args = callExpr.isKind(SyntaxKind.CallExpression) ? callExpr.getArguments() : [];
+    const args = callExpr.getArguments?.() || [];
 
     if (args.length === 0) {
       return [];
@@ -332,7 +341,7 @@ class AxiosInstanceMethodCallDetector extends BasePatternDetector {
     // データ/パラメータの抽出 (第2引数、オブジェクト)
     let params: ParameterUsage[] = [];
 
-    if (args.length > 1 && args[1].isKind(SyntaxKind.ObjectLiteralExpression)) {
+    if (args.length > 1 && args[1].isKind(NodeKind.ObjectLiteralExpression)) {
       const configObj = args[1];
 
       // paramsプロパティからクエリパラメータを抽出
@@ -382,8 +391,12 @@ class AxiosInstanceMethodCallDetector extends BasePatternDetector {
     const parentChain = NodeExtractorsExtended.findMethodChain(node);
     if (parentChain) {
       for (const chainNode of parentChain) {
-        if (NodePredicates.isMethodCall(chainNode, 'then')) {
-          const thenArgs = chainNode.isKind(SyntaxKind.CallExpression) ? chainNode.getArguments() : [];
+        // thenメソッドを使っているか確認
+        const isChainThen = chainNode.isKind?.(NodeKind.CallExpression) && 
+                          (chainNode.getExpression?.()?.getText() || '').endsWith('.then');
+        
+        if (isChainThen) {
+          const thenArgs = chainNode.isKind(NodeKind.CallExpression) ? chainNode.getArguments?.() || [] : [];
 
           if (thenArgs.length > 0) {
             const callbackBody = NodeExtractorsExtended.extractCallbackBody(thenArgs[0]);
@@ -439,7 +452,7 @@ class AxiosInstanceMethodCallDetector extends BasePatternDetector {
   /**
    * 使用箇所の詳細情報を作成
    */
-  private createUsageLocation(node: Node, sourceFile: SourceFile, context?: string): UsageLocation {
+  private createUsageLocation(node: INode, sourceFile: ISourceFile, context?: string): UsageLocation {
     // 行番号と列番号の安全な取得
     const lineNumber = 1;  // デフォルト値
     const columnNumber = 1;  // デフォルト値
@@ -469,12 +482,13 @@ class AxiosRequestConfigDetector extends BasePatternDetector {
   /**
    * Axiosリクエスト設定オブジェクトによる呼び出しを検出
    */
-  public canHandle(node: Node): boolean {
-    if (!node.isKind(SyntaxKind.CallExpression)) {
+  public canHandle(node: INode): boolean {
+    if (!node.isKind(NodeKind.CallExpression)) {
       return false;
     }
 
-    const expression = node.getExpression();
+    const expression = node.getExpression?.();
+    if (!expression) return false;
 
     // パターン1: axios(config)
     if (expression.getText() === 'axios') {
@@ -483,19 +497,19 @@ class AxiosRequestConfigDetector extends BasePatternDetector {
 
     // パターン2: axios.request(config)
     if (
-      expression.isKind(SyntaxKind.PropertyAccessExpression) &&
-      expression.getExpression().getText() === 'axios' &&
-      expression.getName() === 'request'
+      expression.isKind(NodeKind.PropertyAccessExpression) &&
+      expression.getExpression?.()?.getText() === 'axios' &&
+      (expression as any).getName?.() === 'request'
     ) {
       return true;
     }
 
     // パターン3: axiosInstance.request(config)
     if (
-      expression.isKind(SyntaxKind.PropertyAccessExpression) &&
-      expression.getName() === 'request'
+      expression.isKind(NodeKind.PropertyAccessExpression) &&
+      (expression as any).getName?.() === 'request'
     ) {
-      const objText = expression.getExpression().getText();
+      const objText = expression.getExpression?.()?.getText() || '';
 
       return (
         objText !== 'axios' &&
@@ -512,9 +526,13 @@ class AxiosRequestConfigDetector extends BasePatternDetector {
   /**
    * Axiosリクエスト設定からエンドポイント情報を抽出
    */
-  public extractEndpoints(node: Node, context: DetectionContext): EndpointInfo[] {
+  public extractEndpoints(node: INode, context: DetectionContext): EndpointInfo[] {
+    if (!node.isKind(NodeKind.CallExpression)) {
+      return [];
+    }
+    
     const callExpr = node;
-    const args = callExpr.isKind(SyntaxKind.CallExpression) ? callExpr.getArguments() : [];
+    const args = callExpr.getArguments?.() || [];
 
     if (args.length === 0) {
       return [];
@@ -522,7 +540,7 @@ class AxiosRequestConfigDetector extends BasePatternDetector {
 
     // 設定オブジェクトを取得
     const configObj = args[0];
-    if (!configObj.isKind(SyntaxKind.ObjectLiteralExpression)) {
+    if (!configObj.isKind(NodeKind.ObjectLiteralExpression)) {
       return [];
     }
 
@@ -561,32 +579,35 @@ class AxiosRequestConfigDetector extends BasePatternDetector {
 
     // インスタンスからベースURLを抽出（上記で見つからない場合）
     if (!baseUrl) {
-      const expression = Node.isCallExpression(callExpr) ? callExpr.getExpression() : null;
+      const expression = callExpr.getExpression?.();
 
-      if (expression && expression.isKind(SyntaxKind.PropertyAccessExpression)) {
-        const instance = expression.getExpression();
-        const instanceName = instance.getText();
+      if (expression && expression.isKind(NodeKind.PropertyAccessExpression)) {
+        const instance = expression.getExpression?.();
+        const instanceName = instance ? instance.getText() : '';
 
         if (instanceName !== 'axios') {
-          // ソースファイル内でインスタンス生成を探す
-          const declarations = NodeExtractorsExtended.findVariableDeclarations?.(context.sourceFile, instanceName) || [];
+          // 変数宣言を探す - ISourceFileのfindNodesメソッドを使用
+          const declarations = context.sourceFile.findNodes(node => 
+            node.isKind(NodeKind.VariableDeclaration) && 
+            node.getText().includes(instanceName)
+          ) || [];
 
           for (const decl of declarations) {
             // 変数宣言から初期化子を安全に取得
-            const initializer = Node.isVariableDeclaration(decl) ? decl.getInitializer() : null;
+            const initializer = (decl as any).getInitializer?.();
 
-            if (initializer && Node.isCallExpression(initializer)) {
-              const expr = initializer.getExpression();
+            if (initializer && initializer.isKind(NodeKind.CallExpression)) {
+              const expr = initializer.getExpression?.();
               // 型安全なチェック
               const isAxiosCreate = expr &&
-                                   Node.isPropertyAccessExpression(expr) &&
-                                   expr.getName() === 'create' &&
-                                   expr.getExpression().getText() === 'axios';
+                                   expr.isKind(NodeKind.PropertyAccessExpression) &&
+                                   (expr as any).getName?.() === 'create' &&
+                                   expr.getExpression?.()?.getText() === 'axios';
 
               if (isAxiosCreate) {
-                const createArgs = initializer.isKind(SyntaxKind.CallExpression) ? initializer.getArguments() : [];
+                const createArgs = initializer.getArguments?.() || [];
 
-                if (createArgs.length > 0 && createArgs[0].isKind(SyntaxKind.ObjectLiteralExpression)) {
+                if (createArgs.length > 0 && createArgs[0].isKind(NodeKind.ObjectLiteralExpression)) {
                   const createConfigObj = createArgs[0];
                   const createBaseUrlNode = NodeExtractorsExtended.extractPropertyValue(createConfigObj, 'baseURL');
 
@@ -655,8 +676,12 @@ class AxiosRequestConfigDetector extends BasePatternDetector {
     const parentChain = NodeExtractorsExtended.findMethodChain(node);
     if (parentChain) {
       for (const chainNode of parentChain) {
-        if (NodePredicates.isMethodCall(chainNode, 'then')) {
-          const thenArgs = chainNode.isKind(SyntaxKind.CallExpression) ? chainNode.getArguments() : [];
+        // thenメソッドを使っているか確認
+        const isChainThen = chainNode.isKind?.(NodeKind.CallExpression) && 
+                          (chainNode.getExpression?.()?.getText() || '').endsWith('.then');
+        
+        if (isChainThen) {
+          const thenArgs = chainNode.isKind(NodeKind.CallExpression) ? chainNode.getArguments?.() || [] : [];
 
           if (thenArgs.length > 0) {
             const callbackBody = NodeExtractorsExtended.extractCallbackBody(thenArgs[0]);
@@ -712,7 +737,7 @@ class AxiosRequestConfigDetector extends BasePatternDetector {
   /**
    * 使用箇所の詳細情報を作成
    */
-  private createUsageLocation(node: Node, sourceFile: SourceFile, context?: string): UsageLocation {
+  private createUsageLocation(node: INode, sourceFile: ISourceFile, context?: string): UsageLocation {
     // 行番号と列番号の安全な取得
     const lineNumber = 1;  // デフォルト値
     const columnNumber = 1;  // デフォルト値
@@ -749,7 +774,7 @@ export class AxiosDetectionStrategy extends BaseDetectionStrategy {
   /**
    * ファイル内のAxios呼び出しからエンドポイントを検出
    */
-  protected performDetection(sourceFile: SourceFile, context: DetectionContext): EndpointInfo[] {
+  protected performDetection(sourceFile: ISourceFile, context: DetectionContext): EndpointInfo[] {
     logger.debug(`[${this.name}] 検出開始: ${sourceFile.getFilePath()}`);
 
     // 各検出器を順番に実行

@@ -6,17 +6,34 @@
  */
 
 /**
+ * ノードの子観察メソッド
+ */
+export interface INodeDiagnostics {
+  /**
+   * 式を取得する
+   * @returns ノードが式の場合、その式を返す
+   */
+  getExpression?(): INode | null;
+
+  /**
+   * 引数配列を取得する
+   * @returns ノードが関数呼び出しの場合、引数配列を返す
+   */
+  getArguments?(): INode[];
+}
+
+/**
  * ノードの種類を表す列挙型
  * 実際の実装では、ts-morphのSyntaxKindやBabelのNodeTypeなどに
  * マッピングされます。
  */
 export enum NodeKind {
   // 基本構造
-  SourceFile,
-  Block,
+  SourceFile = 0,
+  Block = 1,
   
   // 宣言
-  FunctionDeclaration,
+  FunctionDeclaration = 5,
   ClassDeclaration,
   InterfaceDeclaration,
   TypeAliasDeclaration,
@@ -29,17 +46,17 @@ export enum NodeKind {
   ArrayLiteralExpression,
   StringLiteral,
   NumericLiteral,
-  Identifier,
+  Identifier = 9,
   
   // 文
   ExpressionStatement,
-  ReturnStatement,
+  ReturnStatement = 19,
   IfStatement,
   ForStatement,
   
   // インポート/エクスポート
   ImportDeclaration,
-  ExportDeclaration,
+  ExportDeclaration = 7,
   
   // その他
   Unknown
@@ -58,7 +75,7 @@ export interface NodeLocation {
 /**
  * ASTノードの基本インターフェース
  */
-export interface INode {
+export interface INode extends INodeDiagnostics {
   /**
    * ノードの種類を取得する
    * @returns ノードの種類

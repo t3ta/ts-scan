@@ -1,4 +1,6 @@
 import { Node, SyntaxKind, SourceFile, Expression, ParameterDeclaration } from 'ts-morph';
+import { ISourceFile } from '../../core/ast/interfaces/ISourceFile';
+import { INode, NodeKind } from '../../core/ast/interfaces/INode';
 import { logger } from '../Logger';
 import { NodeTraversal } from './NodeTraversal';
 import { NodeExtractors } from './NodeExtractors';
@@ -71,8 +73,17 @@ export class NodeExtractorsExtended {
 
   /**
    * ソースファイル内の変数宣言を検索する関数
+   * @deprecated 抽象化層のため使用を推奨しない。代わりにISourceFile.findNodesを使用する。
    */
-  public static findVariableDeclarations(sourceFile: SourceFile, variableName: string): Node[] {
+  public static findVariableDeclarations(sourceFile: SourceFile | ISourceFile, variableName: string): Node[] {
+    // ISourceFileの場合は空の配列を返す
+    if ('getRootNode' in sourceFile) {
+      // ISourceFileの実装場合は、findNodesを使用するように読者に促す
+      console.warn('findVariableDeclarationsは抽象化レイヤーと互換性がありません。ISourceFile.findNodesを使用してください。');
+      return [];
+    }
+    
+    // SourceFileの場合
     return sourceFile
       .getDescendantsOfKind(SyntaxKind.VariableDeclaration)
       .filter(decl => decl.getName() === variableName);
@@ -96,7 +107,7 @@ export class NodeExtractorsExtended {
   /**
    * 文字列値を安全に抽出する関数
    */
-  public static extractStringValue(node: Node | undefined): string | null {
+  public static extractStringValue(node: Node | INode | undefined): string | null {
     if (!node) return null;
 
     if (Node.isStringLiteral(node)) {
@@ -116,14 +127,14 @@ export class NodeExtractorsExtended {
   /**
    * オブジェクトリテラルからプロパティ値を抽出する関数
    */
-  public static getPropertyFromObjectLiteral(node: Node, propertyName: string): Expression | undefined {
+  public static getPropertyFromObjectLiteral(node: Node | INode, propertyName: string): Expression | undefined {
     return this.extractPropertyValue(node, propertyName);
   }
 
   /**
    * オブジェクトリテラルからプロパティ値を抽出する関数
    */
-  public static extractPropertyValue(node: Node, propertyName: string): Expression | undefined {
+  public static extractPropertyValue(node: Node | INode, propertyName: string): Expression | undefined {
     if (!Node.isObjectLiteralExpression(node)) return undefined;
 
     const properties = node.getProperties();
@@ -139,7 +150,7 @@ export class NodeExtractorsExtended {
   /**
    * オブジェクトリテラルから全プロパティを抽出する関数
    */
-  public static extractObjectProperties(node: Node): ObjectProperty[] {
+  public static extractObjectProperties(node: Node | INode): ObjectProperty[] {
     if (!Node.isObjectLiteralExpression(node)) return [];
 
     const properties: ObjectProperty[] = [];
@@ -191,7 +202,7 @@ export class NodeExtractorsExtended {
   /**
    * レスポンス変換処理の検出
    */
-  public static detectResponseTransformation(node: Node): boolean {
+  public static detectResponseTransformation(node: Node | INode): boolean {
     if (Node.isBlock(node)) {
       const statements = node.getStatements();
       if (statements.length > 1) {
@@ -214,17 +225,50 @@ export class NodeExtractorsExtended {
 
   /**
    * メソッドチェーンを解析する関数
+   * INodeインターフェースにも対応
    */
-  public static findMethodChain(node: Node): Node[] {
-    const chain: Node[] = [];
+  public static findMethodChain(node: Node | INode): (Node | INode)[] {
+    const chain: (Node | INode)[] = [];
     let current = node;
 
-    while (Node.isCallExpression(current) || Node.isPropertyAccessExpression(current)) {
-      chain.push(current);
-      if (Node.isCallExpression(current)) {
-        current = current.getExpression();
-      } else {
-        current = current.getExpression();
+    // INodeの場合
+    if ('getExpression' in current && typeof current.getExpression === 'function') {
+      while (current) {
+        chain.push(current);
+        
+        // コール式の場合
+        if (current.isKind(NodeKind.CallExpression)) {
+          const expression = current.getExpression();
+          if (expression) {
+            current = expression;
+          } else {
+            break;
+          }
+        }
+        // プロパティアクセス式の場合
+        else if (current.isKind(NodeKind.PropertyAccessExpression)) {
+          const expression = current.getExpression();
+          if (expression) {
+            current = expression;
+          } else {
+            break;
+          }
+        } 
+        else {
+          break;
+        }
+      }
+    }
+    // ts-morphのNodeの場合（元の実装）
+    else if (current instanceof Node) {
+      while (Node.isCallExpression(current as Node) || Node.isPropertyAccessExpression(current as Node)) {
+        chain.push(current);
+        
+        if (Node.isCallExpression(current as Node)) {
+          current = (current as any).getExpression();
+        } else {
+          current = (current as any).getExpression();
+        }
       }
     }
 
@@ -234,7 +278,7 @@ export class NodeExtractorsExtended {
   /**
    * コールバック関数のボディを抽出する関数
    */
-  public static extractCallbackBody(node: Node): Node | undefined {
+  public static extractCallbackBody(node: Node | INode): Node | INode | undefined {
     if (Node.isArrowFunction(node) || Node.isFunctionExpression(node)) {
       return node.getBody();
     }
@@ -303,7 +347,7 @@ export class NodeExtractorsExtended {
   /**
    * 型アノテーション情報を抽出する関数
    */
-  public static extractTypeAnnotation(node: Node): TypeAnnotationInfo[] {
+  public static extractTypeAnnotation(node: Node | INode): TypeAnnotationInfo[] {
     const typeInfos: TypeAnnotationInfo[] = [];
 
     if (Node.isVariableDeclaration(node)) {
@@ -331,45 +375,65 @@ export class NodeExtractorsExtended {
 
   /**
    * コンテキスト推論の改良された関数
+   * INodeインターフェースにも対応
    */
-  public static inferNodeContext(node: Node): string {
-    const functionContext = NodeTraversal.findFirstAncestor(
-      node,
-      n => Node.isFunctionDeclaration(n) ||
-           Node.isMethodDeclaration(n) ||
-           Node.isArrowFunction(n)
-    );
+  public static inferNodeContext(node: Node | INode): string {
+    // ts-morphのNodeの場合は元の実装を使用
+    if (node instanceof Node) {
+      const functionContext = NodeTraversal.findFirstAncestor(
+        node,
+        n => Node.isFunctionDeclaration(n) ||
+             Node.isMethodDeclaration(n) ||
+             Node.isArrowFunction(n)
+      );
 
-    if (functionContext) {
-      if (Node.isFunctionDeclaration(functionContext)) {
-        const name = functionContext.getName();
-        return name ? name : '(無名関数)';
-      }
-      if (Node.isMethodDeclaration(functionContext)) {
-        const name = functionContext.getName();
-        return name ? name : '(無名メソッド)';
-      }
-      if (Node.isArrowFunction(functionContext)) {
-        const parent = functionContext.getParent();
-        if (parent && Node.isVariableDeclaration(parent)) {
-          const name = parent.getName();
-          return name ? name : '(アロー関数)';
+      if (functionContext) {
+        if (Node.isFunctionDeclaration(functionContext)) {
+          const name = functionContext.getName();
+          return name ? name : '(無名関数)';
         }
-        return '(アロー関数)';
+        if (Node.isMethodDeclaration(functionContext)) {
+          const name = functionContext.getName();
+          return name ? name : '(無名メソッド)';
+        }
+        if (Node.isArrowFunction(functionContext)) {
+          const parent = functionContext.getParent();
+          if (parent && Node.isVariableDeclaration(parent)) {
+            const name = parent.getName();
+            return name ? name : '(アロー関数)';
+          }
+          return '(アロー関数)';
+        }
       }
+
+      const classContext = NodeTraversal.findFirstAncestor(
+        node,
+        n => Node.isClassDeclaration(n)
+      );
+
+      if (classContext && Node.isClassDeclaration(classContext)) {
+        const name = classContext.getName();
+        return name ? name : '(無名クラス)';
+      }
+
+      const sourceFile = node.getSourceFile();
+      return sourceFile.getBaseName().replace(/\.[^/.]+$/, '');
     }
+    // INodeの場合は簡易実装を使用
+    else {
+      // IFunctionインターフェースを実装しているか確認
+      if ('getName' in node && typeof node.getName === 'function') {
+        const name = node.getName();
+        return name || '(無名関数)';
+      }
 
-    const classContext = NodeTraversal.findFirstAncestor(
-      node,
-      n => Node.isClassDeclaration(n)
-    );
+      // ソースファイル名をコンテキストとして使用
+      const sourceFile = node.getSourceFile();
+      if (sourceFile && typeof sourceFile.getFileName === 'function') {
+        return sourceFile.getFileName().replace(/\.[^/.]+$/, '');
+      }
 
-    if (classContext && Node.isClassDeclaration(classContext)) {
-      const name = classContext.getName();
-      return name ? name : '(無名クラス)';
+      return 'unknown';
     }
-
-    const sourceFile = node.getSourceFile();
-    return sourceFile.getBaseName().replace(/\.[^/.]+$/, '');
   }
 }

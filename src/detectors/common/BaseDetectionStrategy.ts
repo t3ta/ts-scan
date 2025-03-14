@@ -6,6 +6,7 @@
  */
 
 import { Node, SourceFile } from 'ts-morph';
+import { ISourceFile } from '../../core/ast/interfaces/ISourceFile';
 import { 
   EndpointDetectionStrategy, 
   EndpointInfo, 
@@ -34,7 +35,7 @@ export abstract class BaseDetectionStrategy implements EndpointDetectionStrategy
    * @param context 検出コンテキスト
    * @returns 検出されたエンドポイント情報配列
    */
-  public detect(sourceFile: SourceFile, context: DetectionContext): EndpointInfo[] {
+  public detect(sourceFile: ISourceFile, context: DetectionContext): EndpointInfo[] {
     const startTime = Date.now();
     logger.debug(`[${this.name}] 解析開始: ${sourceFile.getFilePath()}`);
     
@@ -63,7 +64,7 @@ export abstract class BaseDetectionStrategy implements EndpointDetectionStrategy
    * @param sourceFile 解析対象ソースファイル
    * @param context 検出コンテキスト
    */
-  protected prepareDetection(sourceFile: SourceFile, context: DetectionContext): void {
+  protected prepareDetection(sourceFile: ISourceFile, context: DetectionContext): void {
     // デフォルトでは何もしない
   }
   
@@ -73,7 +74,7 @@ export abstract class BaseDetectionStrategy implements EndpointDetectionStrategy
    * @param context 検出コンテキスト
    * @returns 検出されたエンドポイント情報配列
    */
-  protected abstract performDetection(sourceFile: SourceFile, context: DetectionContext): EndpointInfo[];
+  protected abstract performDetection(sourceFile: ISourceFile, context: DetectionContext): EndpointInfo[];
   
   /**
    * 検出後の後処理（オーバーライド可能）
@@ -83,7 +84,7 @@ export abstract class BaseDetectionStrategy implements EndpointDetectionStrategy
    */
   protected finalizeDetection(
     endpoints: EndpointInfo[], 
-    sourceFile: SourceFile, 
+    sourceFile: ISourceFile, 
     context: DetectionContext
   ): void {
     // デフォルトではエンドポイント情報の補完を行う
@@ -95,7 +96,7 @@ export abstract class BaseDetectionStrategy implements EndpointDetectionStrategy
    * @param endpoints エンドポイント情報配列
    * @param sourceFile 解析対象ソースファイル
    */
-  protected complementEndpointInfo(endpoints: EndpointInfo[], sourceFile: SourceFile): void {
+  protected complementEndpointInfo(endpoints: EndpointInfo[], sourceFile: ISourceFile): void {
     const filePath = sourceFile.getFilePath();
     
     for (const endpoint of endpoints) {
@@ -146,7 +147,7 @@ export abstract class BaseDetectionStrategy implements EndpointDetectionStrategy
    */
   protected createUsageLocation(
     node: Node, 
-    sourceFile: SourceFile, 
+    sourceFile: ISourceFile, 
     context?: string
   ): UsageLocation {
     return NodeExtractors.createUsageLocation(node, sourceFile, context);

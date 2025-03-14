@@ -75,6 +75,7 @@ export class MockSourceFile implements ISourceFile {
    * @returns 関数宣言の配列
    */
   public getFunctions(): IFunction[] {
+    // 標準的な探索方法を使用
     return this.findNodes(node => node.getKind() === NodeKind.FunctionDeclaration) as IFunction[];
   }
   

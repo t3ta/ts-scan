@@ -52,15 +52,27 @@
 
 ## 未実装の機能や残作業
 
-### 高優先度
+## 高優先度
 
-- [ ] 全テストの修正と実行
-  - [ ] ソースファイル型の不一致解決（`SourceFile` → `ISourceFile`）
-  - [ ] 一部アダプターの実装完成と修正
+- [x] 一部テストの修正と実行
+  - [x] MockNodeのfindDescendants機能の修正
+  - [x] IFunctionインターフェースの実装追加
+  - [x] NodeKind列挙体とスナップショットの整合
+  - [x] ServiceLocatorテストの修正
+  - [x] StrategyRegistryテストの修正
+  - [x] AnalyzerEngineとServiceLocatorの互換性問題の解決
+  - [x] AxiosDetectionStrategy.test.tsのISourceFile化への対応（部分的）
+  - [x] インターフェース拡張
+    - [x] INodeDiagnosticsインターフェースの追加
+    - [x] MockNodeの実装拡張
+    - [x] NodeExtractorsExtendedのインターフェース対応
+    - [x] NodePredicatesのインターフェース対応
   - [ ] 残りのテストファイル修正
 
-- [ ] 検出器モジュールのリファクタリング
-  - [ ] `AxiosDetectionStrategy` の改修
+- [x] 検出器モジュールのリファクタリング
+  - [x] `AxiosDetectionStrategy` の改修
+  - [x] `NodePredicates.isMethodCall` 問題を解決
+  - [ ] 残りのコンパイルエラー対応
   - [ ] `FetchDetectionStrategy` の改修
   - [ ] `RTKQueryDetectionStrategy` の改修
   - [ ] `CustomApiClientStrategy` の改修
@@ -86,15 +98,14 @@
 
 ## 現在のステータス
 
-- 実装フェーズ: テスト環境整備と検証
-  - 抽象化レイヤーとアダプターの基本実装が完了
-  - 主要クラスの実装は完了
-  - テスト実行時のエラー修正に取り組み中
-  - 型の不一致等による問題を解決中
+- 実装フェーズ: インターフェース拡張とテスト環境整備
+  - `AxiosDetectionStrategy.ts` のts-morph直接参照を解消
+  - NodePredicates.isMethodCallの使用箇所を修正
+  - まだ多くのコンパイルエラーが存在している状態
 
-- 次のフェーズ: 検出器モジュールのリファクタリング
-  - 各検出戦略クラスがISourceFile, INodeインターフェースを使うように修正
-  - 実装に伴う各種テストケースの調整
+- 次のフェーズ: INodeインターフェースの拡張
+  - getName()メソッドなど、INodeインターフェースを拡張する必要あり
+  - 既存ユーティリティの互換性確保における課題あり
 
 ## 環境依存の課題
 

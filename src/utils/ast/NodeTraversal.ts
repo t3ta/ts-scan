@@ -1,4 +1,5 @@
-import { Node, SyntaxKind } from 'ts-morph';
+// 依存関係を抽象化レイヤーに変更
+import { INode, NodeKind } from '../../core/ast/interfaces/INode';
 
 export class NodeTraversal {
   /**
@@ -7,7 +8,7 @@ export class NodeTraversal {
    * @param predicate 検索条件
    * @returns 見つかったノード、または undefined
    */
-  public static findFirstAncestor(node: Node, predicate: (node: Node) => boolean): Node | undefined {
+  public static findFirstAncestor(node: INode, predicate: (node: INode) => boolean): INode | undefined {
     let current = node.getParent();
     while (current) {
       if (predicate(current)) {
@@ -24,7 +25,7 @@ export class NodeTraversal {
    * @param predicate 検索条件
    * @returns 見つかったノード、または undefined
    */
-  public static findFirstDescendant(node: Node, predicate: (node: Node) => boolean): Node | undefined {
+  public static findFirstDescendant(node: INode, predicate: (node: INode) => boolean): INode | undefined {
     const children = node.getChildren();
     for (const child of children) {
       if (predicate(child)) {
@@ -44,9 +45,9 @@ export class NodeTraversal {
    * @param predicate 検索条件
    * @returns 見つかったノードの配列
    */
-  public static findNodes(node: Node, predicate: (node: Node) => boolean): Node[] {
-    const results: Node[] = [];
-    const queue: Node[] = [node];
+  public static findNodes(node: INode, predicate: (node: INode) => boolean): INode[] {
+    const results: INode[] = [];
+    const queue: INode[] = [node];
 
     while (queue.length > 0) {
       const current = queue.shift()!;
@@ -65,7 +66,7 @@ export class NodeTraversal {
    * @param kind 探すノードの種類
    * @returns 見つかったノード、または undefined
    */
-  public static findFirstDescendantByKind(node: Node, kind: SyntaxKind): Node | undefined {
+  public static findFirstDescendantByKind(node: INode, kind: NodeKind): INode | undefined {
     return this.findFirstDescendant(node, n => n.getKind() === kind);
   }
 
@@ -75,7 +76,7 @@ export class NodeTraversal {
    * @param kind 探すノードの種類
    * @returns 見つかったノードの配列
    */
-  public static findNodesByKind(node: Node, kind: SyntaxKind): Node[] {
+  public static findNodesByKind(node: INode, kind: NodeKind): INode[] {
     return this.findNodes(node, n => n.getKind() === kind);
   }
 
@@ -84,21 +85,21 @@ export class NodeTraversal {
    * @param node 開始ノード
    * @returns メソッドチェーンの配列
    */
-  public static analyzeMethodChain(node: Node): { method: string; args: Node[] }[] {
-    const chain: { method: string; args: Node[] }[] = [];
+  public static analyzeMethodChain(node: INode): { method: string; args: INode[] }[] {
+    const chain: { method: string; args: INode[] }[] = [];
     let current = node;
 
     while (current) {
-      if (current.isKind(SyntaxKind.CallExpression)) {
+      if (current.isKind(NodeKind.CallExpression)) {
         const expression = current.getExpression();
-        if (expression.isKind(SyntaxKind.PropertyAccessExpression)) {
+        if (expression.isKind(NodeKind.PropertyAccessExpression)) {
           chain.unshift({
             method: expression.getName(),
             args: current.getArguments()
           });
         }
         current = expression;
-      } else if (current.isKind(SyntaxKind.PropertyAccessExpression)) {
+      } else if (current.isKind(NodeKind.PropertyAccessExpression)) {
         current = current.getExpression();
       } else {
         break;
@@ -114,13 +115,13 @@ export class NodeTraversal {
    * @param methodName メソッド名
    * @returns true: 指定されたメソッド名の呼び出し / false: それ以外
    */
-  public static isMethodCall(node: Node, methodName: string): boolean {
-    if (!node.isKind(SyntaxKind.CallExpression)) {
+  public static isMethodCall(node: INode, methodName: string): boolean {
+    if (!node.isKind(NodeKind.CallExpression)) {
       return false;
     }
 
     const expression = node.getExpression();
-    if (!expression.isKind(SyntaxKind.PropertyAccessExpression)) {
+    if (!expression.isKind(NodeKind.PropertyAccessExpression)) {
       return false;
     }
 
