@@ -26,7 +26,11 @@
 ts-scanプロジェクトにテスト環境を整備し、テスト駆動開発(TDD)のアプローチを導入する作業を進めているのだ。現在は以下の作業フェーズにあるのだ：
 
 1. コアコンポーネント（`ServiceLocator`、`StrategyRegistry`）のユニットテスト実装完了
-2. 検出器モジュール（`AxiosDetectionStrategy`）のテスト実装に一部課題あり
+2. 検出器モジュールのテスト実装完了
+   - `AxiosDetectionStrategy.test.ts` （一部スキップテストあり）
+   - `FetchDetectionStrategy.test.ts` （実装完了）
+   - `RTKQueryDetectionStrategy.test.ts` （実装完了）
+   - `CustomApiClientStrategy.test.ts` （実装完了）
 3. レポーターモジュール（`JsonReporter`、`MarkdownReporter`）のテスト実装完了
 4. 全レポータージェネレーターのテスト実装完了
    - `SummaryGenerator.test.ts`
@@ -41,6 +45,14 @@ ts-scanプロジェクトにテスト環境を整備し、テスト駆動開発(
 
 ## 直近の変更点
 
+- 全ての検出器モジュールのテスト実装を完了
+  - `FetchDetectionStrategy.test.ts`の実装完了：Fetch APIを使用したHTTPリクエストの検出をテスト
+  - `RTKQueryDetectionStrategy.test.ts`の実装完了：Redux Toolkit QueryのAPIエンドポイント検出をテスト
+  - `CustomApiClientStrategy.test.ts`の実装完了：カスタムAPIクライアントの検出をテスト
+  - 各テストに対応するフィクスチャデータも作成完了
+    - `fetch-samples.ts`
+    - `rtk-query-samples.ts`
+    - `custom-api-client-samples.ts`
 - 残りのジェネレーターモジュールのテスト実装
   - `VisualizationGenerator.test.ts`の実装完了：グラフ生成機能をテスト
   - `EndpointListGenerator.test.ts`の実装完了：エンドポイント一覧生成機能をテスト
@@ -54,6 +66,7 @@ ts-scanプロジェクトにテスト環境を整備し、テスト駆動開発(
 - テスト実行と修正
   - テスト実行時の期待値と実際の出力の不一致を把握
   - より安定したテスト実装のための方針設定
+  - ts-morphに依存するテストでは一部スキップテストを使用
 
 ## 今アクティブな決定事項
 
@@ -88,10 +101,10 @@ ts-scanプロジェクトにテスト環境を整備し、テスト駆動開発(
    - 依存性の注入またはモックによる回避策の検討
    - テスト環境でのts-morphの初期化方法の最適化
 
-3. 検出器モジュールのテスト実装戦略
-   - 複雑な検出ロジックに対する効果的なテスト手法の確立
-   - 実際の TypeScript AST に近いモックデータの作成方法
-   - コンテキスト依存テストの分離手法
+3. 検出器モジュールのテスト追加考慮事項
+   - 実際の実行環境でスキップされたテストケースの処理方針
+   - 実際のts-morph ASTを使用した様々なケースの追加方法
+   - 実入力に対するスナップショットテストの検討
 
 ## 次のステップ
 

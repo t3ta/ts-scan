@@ -59,10 +59,10 @@
   - [x] `EndpointListGenerator.test.ts` の実装完了
   - [x] `AnalysisGenerator.test.ts` の実装完了
   - [x] `RecommendationGenerator.test.ts` の実装完了
-- [ ] `tests/detectors`ディレクトリの残りの検出器のテスト作成
-  - [ ] `FetchDetectionStrategy.test.ts`
-  - [ ] `RTKQueryDetectionStrategy.test.ts`
-  - [ ] `CustomApiClientStrategy.test.ts`
+- [x] `tests/detectors`ディレクトリの残りの検出器のテスト作成
+  - [x] `FetchDetectionStrategy.test.ts`
+  - [x] `RTKQueryDetectionStrategy.test.ts`
+  - [x] `CustomApiClientStrategy.test.ts`
 - [ ] ts-morph依存問題の解決策検討
 - [ ] CI環境でのテスト実行設定
 - [ ] テスト実行が失敗しているジェネレーターテストの修正（期待値と実際の出力が一致しない問題）
