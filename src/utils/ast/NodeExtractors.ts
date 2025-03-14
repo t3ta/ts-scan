@@ -8,6 +8,24 @@
 // SyntaxKindは用途を明示するためにインポートしています
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Node, SyntaxKind, SourceFile, TypeChecker } from 'ts-morph';
+
+/**
+ * INodeインターフェースを持つオブジェクトかどうかを判別する型ガード
+ * @param node 検査対象ノード
+ * @returns INodeインターフェースを持つオブジェクトならtrue
+ */
+function isINode(node: Node | INode): node is INode {
+  return 'isKind' in node && typeof node.isKind === 'function';
+}
+
+/**
+ * ts-morph Nodeかどうかを判別する型ガード
+ * @param node 検査対象ノード
+ * @returns ts-morph Nodeならtrue
+ */
+function isTsMorphNode(node: Node | INode): node is Node {
+  return !('isKind' in node);
+}
 import { ISourceFile } from '../../core/ast/interfaces/ISourceFile';
 import { INode, NodeKind } from '../../core/ast/interfaces/INode';
 import { HttpMethod, UsageLocation } from '../../types';
@@ -65,7 +83,7 @@ export class NodeExtractors {
    */
   public static extractHttpMethod(node: Node | INode): HttpMethod {
     // INodeの場合
-    if ('isKind' in node && typeof node.isKind === 'function') {
+    if (isINode(node)) {
       // 1. メソッド名から推論: get(), post() 等
       if (node.isKind(NodeKind.CallExpression)) {
         const expression = node.getExpression?.();
@@ -188,7 +206,7 @@ export class NodeExtractors {
    */
   public static extractUrlFromStringLiteral(node: Node | INode): string | null {
     // INodeの場合
-    if ('isKind' in node && typeof node.isKind === 'function') {
+    if (isINode(node)) {
       if (node.isKind(NodeKind.StringLiteral)) {
         // INodeインターフェースにはgetLiteralValueメソッドがないため、代替実装
         // クォートを除去して値を抽出
@@ -220,7 +238,7 @@ export class NodeExtractors {
    */
   public static extractUrlFromTemplateLiteral(node: Node | INode): string | null {
     // INodeの場合
-    if ('isKind' in node && typeof node.isKind === 'function') {
+    if (isINode(node)) {
       if (node.isKind(NodeKind.TemplateExpression)) {
         // INodeインターフェースにはgetHeadやgetTemplateSpansがないため、
         // テキスト処理による代替実装
@@ -276,7 +294,7 @@ export class NodeExtractors {
    */
   public static extractUrlAndMethodFromObject(node: Node | INode): { path: string | null; method: HttpMethod } {
     // INodeの場合
-    if ('isKind' in node && typeof node.isKind === 'function') {
+    if (isINode(node)) {
       if (!node.isKind(NodeKind.ObjectLiteralExpression)) {
         return { path: null, method: 'GET' };
       }
@@ -373,7 +391,7 @@ export class NodeExtractors {
    */
   public static extractUrlFromFirstArgument(node: Node | INode): string | null {
     // INodeの場合
-    if ('isKind' in node && typeof node.isKind === 'function') {
+    if (isINode(node)) {
       if (!node.isKind(NodeKind.CallExpression)) {
         return null;
       }
@@ -437,7 +455,7 @@ export class NodeExtractors {
     // コンテキスト情報の取得
     if (!context) {
       // INodeの場合
-      if ('findDescendants' in node && typeof node.findDescendants === 'function') {
+      if (isINode(node)) {
         const parent = NodeTraversal.findFirstAncestor(
           node,
           n => n.isKind(NodeKind.FunctionDeclaration) ||
@@ -454,20 +472,18 @@ export class NodeExtractors {
         }
       }
       // ts-morph Node の場合
-      else {
-        const parent = NodeTraversal.findFirstAncestor(
-          node,
-          n => Node.isFunctionDeclaration(n) ||
-            Node.isMethodDeclaration(n) ||
-            Node.isVariableDeclaration(n)
-        );
-
-        if (parent) {
+      else if (isTsMorphNode(node)) {
+        // ts-morph Nodeの場合はNodeTraversalを使わずに直接親を探索
+        let parent: Node | undefined = node.getParent();
+        while (parent) {
           if (Node.isFunctionDeclaration(parent) || Node.isMethodDeclaration(parent)) {
             context = parent.getName() || 'anonymous';
+            break;
           } else if (Node.isVariableDeclaration(parent)) {
             context = parent.getName();
+            break;
           }
+          parent = parent.getParent();
         }
       }
     }
@@ -487,16 +503,27 @@ export class NodeExtractors {
     }
 
     // SourceFileの場合
-    const startPos = node.getStart();
-    const { line, column } = sourceFile.getLineAndColumnAtPos(startPos);
+    if (isTsMorphNode(node)) {
+      const startPos = node.getStart();
+      const { line, column } = sourceFile.getLineAndColumnAtPos(startPos);
 
-    return {
-      filePath: sourceFile.getFilePath(),
-      lineNumber: line,
-      columnNumber: column,
-      context: context || 'unknown',
-      codeSnippet: snippet
-    };
+      return {
+        filePath: sourceFile.getFilePath(),
+        lineNumber: line,
+        columnNumber: column,
+        context: context || 'unknown',
+        codeSnippet: snippet
+      };
+    } else {
+      // INodeの場合、正確な位置情報がないのでデフォルト値を使用
+      return {
+        filePath: sourceFile.getFilePath(),
+        lineNumber: 1,
+        columnNumber: 0,
+        context: context || 'unknown',
+        codeSnippet: snippet
+      };
+    }
   }
 
   /**
@@ -507,7 +534,7 @@ export class NodeExtractors {
    */
   public static extractPropertyValue(obj: Node | INode, propertyName: string): Node | INode | undefined {
     // INodeの場合
-    if ('isKind' in obj && typeof obj.isKind === 'function') {
+    if (isINode(obj)) {
       if (!obj.isKind(NodeKind.ObjectLiteralExpression)) {
         return undefined;
       }
@@ -620,7 +647,7 @@ export class NodeExtractors {
 
     try {
       // INodeの場合
-      if ('isKind' in node && typeof node.isKind === 'function') {
+      if (isINode(node)) {
         // オブジェクトリテラルの場合
         if (node.isKind(NodeKind.ObjectLiteralExpression)) {
           const properties = node.getChildren().filter(
@@ -764,7 +791,7 @@ export class NodeExtractors {
     baseUrl?: string;
   } {
     // INodeの場合
-    if ('isKind' in configObj && typeof configObj.isKind === 'function') {
+    if (isINode(configObj)) {
       if (!configObj.isKind(NodeKind.ObjectLiteralExpression)) {
         return {};
       }
@@ -847,7 +874,7 @@ export class NodeExtractors {
    */
   public static extractObjectArgument(callExpr: Node | INode, argIndex: number = 0): Node | INode | undefined {
     // INodeの場合
-    if ('isKind' in callExpr && typeof callExpr.isKind === 'function') {
+    if (isINode(callExpr)) {
       if (!callExpr.isKind(NodeKind.CallExpression)) {
         return undefined;
       }
@@ -866,7 +893,12 @@ export class NodeExtractors {
     }
 
     // ts-morph Node の場合
-    if (!Node.isCallExpression(callExpr)) {
+    if (isTsMorphNode(callExpr)) {
+      if (!Node.isCallExpression(callExpr)) {
+        return undefined;
+      }
+    } else {
+      // INodeの場合はすでに処理済み
       return undefined;
     }
 
@@ -890,7 +922,7 @@ export class NodeExtractors {
    */
   public static extractBuilderParamName(node: Node | INode): string {
     // INodeの場合
-    if ('isKind' in node && typeof node.isKind === 'function') {
+    if (isINode(node)) {
       if (!node.isKind(NodeKind.ArrowFunction)) {
         return 'builder';
       }
@@ -912,7 +944,12 @@ export class NodeExtractors {
     }
 
     // ts-morph Node の場合
-    if (!Node.isArrowFunction(node)) {
+    if (isTsMorphNode(node)) {
+      if (!Node.isArrowFunction(node)) {
+        return 'builder';
+      }
+    } else {
+      // INodeの場合はすでに処理済み
       return 'builder';
     }
 

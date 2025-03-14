@@ -87,6 +87,7 @@ export enum NodeKind {
   InterfaceDeclaration,
   TypeAliasDeclaration,
   VariableDeclaration,
+  MethodDeclaration,
   
   // 式
   CallExpression,

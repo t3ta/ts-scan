@@ -5,7 +5,7 @@
  * 異なるログレベルをサポートし、必要に応じてフォーマットや出力先を制御できます。
  */
 
-import chalk from 'chalk';
+import * as chalk from 'chalk';
 import { ILogger } from '../types';
 
 /**

@@ -55,6 +55,56 @@
 - AST操作ユーティリティクラスの修正
   - `NodeTraversal.ts` がINodeインターフェイスに対応
   - `NodePredicates.ts` がINodeインターフェイスに対応
+  - `NodeExtractors.ts` をINodeインターフェースに完全対応
+  - `NodeExtractorsExtended.ts` をINodeインターフェースに完全対応
+  - 型ガード関数（isINode, isTsMorphNode）を導入
+  - NodeKind列挙型にMethodDeclarationを追加
+  - 型安全なノード変換処理の実装ダプター
+  - `TsMorphSourceFileAdapter` - ts-morphのSourceFileをISourceFileに適合させる
+  - `TsMorphNodeAdapter` - ts-morphのNodeをINodeに適合させる
+  - `TsMorphFunctionAdapter` - 関数宣言のアダプター
+  - `TsMorphParameterAdapter` - パラメータのアダプター
+  - `TsMorphTypeAdapter` - 型情報のアダプター
+  - `TsMorphClassAdapter` - クラス宣言のアダプター
+  - `TsMorphInterfaceAdapter` - インターフェース宣言のアダプター
+  - `TsMorphVariableAdapter` - 変数宣言のアダプター
+  - `TsMorphImportDeclarationAdapter` - インポート宣言のアダプター
+- モックプロバイダーの実装
+  - `MockProvider` クラスの実装
+  - `MockSourceFile` クラスの実装
+  - `MockNode` クラスの実装
+  - スナップショットベースのモック機構の実装
+- スナップショット機構の構築
+  - スナップショット形式の設計と実装
+  - スナップショット生成・読み込みユーティリティの実装
+  - 基本的なスナップショットデータの作成（`basic-function.json`, `axios-client-usage.json`）
+- DI機構の拡張
+  - `ASTProviderFactory` の実装 - 環境に応じた適切なプロバイダーを生成
+  - `ServiceLocator` にASTプロバイダー関連メソッドを追加
+  - 環境検出と適切なプロバイダー選択ロジックの実装
+- テストヘルパーの整備
+  - `ast-helpers.ts` - ASTモック生成・操作ヘルパー
+  - スナップショットロードユーティリティの実装
+  - テスト用ファクトリー関数の実装
+- `AnalyzerEngine` のリファクタリング
+  - ts-morph直接参照から抽象インターフェース経由の操作に変更
+  - DI機構を活用したプロバイダー取得・初期化プロセスの改善
+- 型定義の更新
+  - `types.ts` における `DetectionContext` や `EndpointDetectionStrategy` インターフェースの修正
+  - 抽象インターフェースを活用した型定義の改善
+- 検出器モジュールのリファクタリング
+  - 主要な検出戦略クラスのts-morph直接依存を抽象インターフェース依存に変更完了
+  - パターン検出器クラスの修正完了
+    - `CreateApiCallDetector`
+    - `EndpointDefinitionDetector`
+    - `EnhancedEndpointDefinitionDetector`
+    - `ApiInstanceUsageDetector`
+    - `ApiClientMethodCallDetector`
+    - `HttpPatternDetector`
+    - `ServiceMethodDetector`
+- AST操作ユーティリティクラスの修正
+  - `NodeTraversal.ts` がINodeインターフェイスに対応
+  - `NodePredicates.ts` がINodeインターフェイスに対応
 
 ## 作業中の部分
 

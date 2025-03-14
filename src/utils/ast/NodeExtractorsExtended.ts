@@ -17,22 +17,40 @@ export interface TypeAnnotationInfo {
 
 export class NodeExtractorsExtended {
   /**
-   * INodeインターフェースか判定する型ガード関数
-   * @param node 対象ノード
-   * @returns INodeインターフェースであればtrue
+   * INodeインターフェースを持つオブジェクトかどうかを判別する型ガード
+   * @param node 検査対象ノード
+   * @returns INodeインターフェースを持つオブジェクトならtrue
    */
   private static isINode(node: Node | INode): node is INode {
     return 'isKind' in node && typeof node.isKind === 'function';
   }
 
   /**
+   * ts-morph Nodeかどうかを判別する型ガード
+   * @param node 検査対象ノード
+   * @returns ts-morph Nodeならtrue
+   */
+  private static isTsMorphNode(node: Node | INode): node is Node {
+    return !('isKind' in node);
+  }
+
+  /**
    * 型安全なノード変換（互換性問題用）
    * @param node INodeまたはNode
-   * @returns 元のノード（型キャスト）
+   * @returns ts-morph Node
+   * @throws {Error} INodeをts-morph Nodeに変換できない場合
    */
-  private static asNode(node: Node | INode): any {
-    // 型互換性の問題を解決するためにanyにキャスト
-    return node;
+  private static asNode<T extends Node>(node: Node | INode): T {
+    if (this.isTsMorphNode(node)) {
+      return node as T;
+    }
+    if (typeof (node as INode).getInternalNode === 'function') {
+      const internalNode = (node as INode).getInternalNode();
+      if (internalNode) {
+        return internalNode as T;
+      }
+    }
+    throw new Error('Cannot convert INode to ts-morph Node: internal node not available');
   }
   /**
    * モジュールパスを解決する
@@ -48,62 +66,68 @@ export class NodeExtractorsExtended {
    * JSONコンテンツをボディから抽出する関数
    */
   public static extractJsonContentFromBody(node: Node | INode): { [key: string]: any } | undefined {
-    // INodeの場合
-    if (this.isINode(node)) {
-      if (!node.isKind(NodeKind.ObjectLiteralExpression)) {
+    try {
+      // INodeの場合
+      if (this.isINode(node)) {
+        if (!node.isKind(NodeKind.ObjectLiteralExpression)) {
+          return undefined;
+        }
+
+        const result: { [key: string]: any } = {};
+        const properties = node.getChildren().filter(
+          p => p.getText().includes(':') ||
+            (p.getText().startsWith('"') && p.getText().includes(':')) ||
+            (p.getText().startsWith("'") && p.getText().includes(':'))
+        );
+
+        for (const prop of properties) {
+          // プロパティ名と値を抽出
+          const propText = prop.getText();
+          const colonIndex = propText.indexOf(':');
+
+          if (colonIndex > 0) {
+            let propName = propText.substring(0, colonIndex).trim();
+            // クォートがある場合は除去
+            if ((propName.startsWith('"') && propName.endsWith('"')) ||
+              (propName.startsWith("'") && propName.endsWith("'"))) {
+              propName = propName.substring(1, propName.length - 1);
+            }
+
+            // 値部分の抽出
+            if (colonIndex < propText.length - 1) {
+              const valueText = propText.substring(colonIndex + 1).trim();
+              result[propName] = this.extractValueFromText(valueText);
+            }
+          }
+        }
+
+        return result;
+      }
+
+      // ts-morph Node の場合
+      const tsNode = this.asNode(node);
+      if (!Node.isObjectLiteralExpression(tsNode)) {
         return undefined;
       }
 
       const result: { [key: string]: any } = {};
-      const properties = node.getChildren().filter(
-        p => p.getText().includes(':') ||
-          (p.getText().startsWith('"') && p.getText().includes(':')) ||
-          (p.getText().startsWith("'") && p.getText().includes(':'))
-      );
+      const properties = tsNode.getProperties();
 
       for (const prop of properties) {
-        // プロパティ名と値を抽出
-        const propText = prop.getText();
-        const colonIndex = propText.indexOf(':');
-
-        if (colonIndex > 0) {
-          let propName = propText.substring(0, colonIndex).trim();
-          // クォートがある場合は除去
-          if ((propName.startsWith('"') && propName.endsWith('"')) ||
-            (propName.startsWith("'") && propName.endsWith("'"))) {
-            propName = propName.substring(1, propName.length - 1);
-          }
-
-          // 値部分の抽出
-          if (colonIndex < propText.length - 1) {
-            const valueText = propText.substring(colonIndex + 1).trim();
-            result[propName] = this.extractValueFromText(valueText);
+        if (Node.isPropertyAssignment(prop)) {
+          const name = prop.getName();
+          const value = prop.getInitializer();
+          if (value) {
+            result[name] = this.extractValueFromNode(value);
           }
         }
       }
 
       return result;
-    }
-
-    // ts-morph Node の場合
-    if (!Node.isObjectLiteralExpression(node)) {
+    } catch (error) {
+      logger.warn(`Error extracting JSON content: ${error}`);
       return undefined;
     }
-
-    const result: { [key: string]: any } = {};
-    const properties = node.getProperties();
-
-    for (const prop of properties) {
-      if (Node.isPropertyAssignment(prop)) {
-        const name = prop.getName();
-        const value = prop.getInitializer();
-        if (value) {
-          result[name] = this.extractValueFromNode(value);
-        }
-      }
-    }
-
-    return result;
   }
 
   /**
@@ -193,82 +217,108 @@ export class NodeExtractorsExtended {
    * ノード位置情報を安全に取得する関数
    */
   public static getNodeLocation(node: Node | INode): { line: number; column: number; sourceFile: string } {
-    // INodeの場合
-    if (this.isINode(node) && node.getLocation) {
-      const location = node.getLocation();
-      const sourceFile = node.getSourceFile();
+    try {
+      // INodeの場合
+      if (this.isINode(node)) {
+        const location = node?.getLocation?.();
+        const sourceFile = node?.getSourceFile?.();
+
+        if (location) {
+          return {
+            line: location.line,
+            column: location.column,
+            sourceFile: typeof sourceFile?.getFilePath === 'function' ?
+              sourceFile.getFilePath() :
+              'unknown'
+          };
+        }
+        // 位置情報がない場合はデフォルト値
+        return {
+          line: 1,
+          column: 0,
+          sourceFile: 'unknown'
+        };
+      }
+
+      // ts-morph Node の場合
+      const tsNode = this.asNode(node);
+      const sourceFile = tsNode.getSourceFile();
+      const { line, column } = sourceFile.getLineAndColumnAtPos(tsNode.getStart());
 
       return {
-        line: location.line,
-        column: location.column,
-        sourceFile: typeof sourceFile.getFilePath === 'function' ?
-          sourceFile.getFilePath() :
-          'unknown'
+        line,
+        column,
+        sourceFile: sourceFile.getFilePath()
+      };
+    } catch (error) {
+      logger.warn(`Error getting node location: ${error}`);
+      return {
+        line: 1,
+        column: 0,
+        sourceFile: 'unknown'
       };
     }
-
-    // ts-morph Node の場合
-    const sourceFile = node.getSourceFile();
-    const pos = node.getStart();
-    const lineAndChar = sourceFile.getLineAndColumnAtPos(pos);
-
-    return {
-      line: lineAndChar.line,
-      column: lineAndChar.column,
-      sourceFile: sourceFile.getFilePath()
-    };
   }
 
   /**
    * 文字列値を安全に抽出する関数
    */
   public static extractStringValue(node: Node | INode | undefined): string | null {
-    if (!node) return null;
+    try {
+      if (!node) return null;
 
-    // INodeの場合
-    if (this.isINode(node)) {
-      if (node.isKind(NodeKind.StringLiteral)) {
-        const text = node.getText();
-        // クォートを取り除く
-        if ((text.startsWith('"') && text.endsWith('"')) ||
-          (text.startsWith("'") && text.endsWith("'"))) {
-          return text.substring(1, text.length - 1);
+      // INodeの場合
+      if (this.isINode(node)) {
+        if (node.isKind(NodeKind.StringLiteral)) {
+          const text = node.getText();
+          // クォートを取り除く
+          if ((text.startsWith('"') && text.endsWith('"')) ||
+            (text.startsWith("'") && text.endsWith("'"))) {
+            return text.substring(1, text.length - 1);
+          }
+          return text;
         }
-        return text;
+
+        // プロパティアサインメントに相当する場合
+        if (node.getKind() === NodeKind.Unknown && node.getText().includes(':')) {
+          const text = node.getText();
+          const colonIndex = text.indexOf(':');
+
+          if (colonIndex > 0 && colonIndex < text.length - 1) {
+            const valueText = text.substring(colonIndex + 1).trim();
+
+            // 文字列リテラルの場合
+            if ((valueText.startsWith('"') && valueText.endsWith('"')) ||
+              (valueText.startsWith("'") && valueText.endsWith("'"))) {
+              return valueText.substring(1, valueText.length - 1);
+            }
+          }
+        }
+
+        return null;
       }
 
-      // プロパティアサインメントに相当する場合
-      if (node.getKind() === NodeKind.Unknown && node.getText().includes(':')) {
-        const text = node.getText();
-        const colonIndex = text.indexOf(':');
-
-        if (colonIndex > 0 && colonIndex < text.length - 1) {
-          const valueText = text.substring(colonIndex + 1).trim();
-
-          // 文字列リテラルの場合
-          if ((valueText.startsWith('"') && valueText.endsWith('"')) ||
-            (valueText.startsWith("'") && valueText.endsWith("'"))) {
-            return valueText.substring(1, valueText.length - 1);
+      // ts-morph Node の場合
+      try {
+        const stringLiteral = this.asNode<import('ts-morph').StringLiteral>(node);
+        return stringLiteral.getText().replace(/['"]/g, '');
+      } catch {
+        try {
+          const propertyAssignment = this.asNode<import('ts-morph').PropertyAssignment>(node);
+          const initializer = propertyAssignment.getInitializer();
+          if (Node.isStringLiteral(initializer)) {
+            return initializer.getText().replace(/['"]/g, '');
           }
+        } catch {
+          // 型変換に失敗した場合は無視
         }
       }
 
       return null;
+    } catch (error) {
+      logger.warn(`Error extracting string value: ${error}`);
+      return null;
     }
-
-    // ts-morph Node の場合
-    if (Node.isStringLiteral(node)) {
-      return node.getText().replace(/['"]/g, '');
-    }
-
-    if (Node.isPropertyAssignment(node)) {
-      const initializer = node.getInitializer();
-      return initializer && Node.isStringLiteral(initializer)
-        ? initializer.getText().replace(/['"]/g, '')
-        : null;
-    }
-
-    return null;
   }
 
   /**
@@ -282,119 +332,124 @@ export class NodeExtractorsExtended {
    * オブジェクトリテラルからプロパティ値を抽出する関数
    */
   public static extractPropertyValue(node: Node | INode, propertyName: string): Expression | INode | undefined {
-    // INodeの場合
-    if (this.isINode(node)) {
-      if (!node.isKind(NodeKind.ObjectLiteralExpression)) {
-        return undefined;
-      }
+    try {
+      // INodeの場合
+      if (this.isINode(node)) {
+        if (!node.isKind(NodeKind.ObjectLiteralExpression)) {
+          return undefined;
+        }
 
-      // getPropertyに相当する操作が実装されていないため、
-      // findDescendantsを使用して代替実装
-      const children = node.getChildren();
+        // getPropertyに相当する操作が実装されていないため、
+        // findDescendantsを使用して代替実装
+        const children = node.getChildren();
 
-      for (const child of children) {
-        // PropertyAssignmentに相当する判定
-        if (child.getText().startsWith(`"${propertyName}"`) ||
-          child.getText().startsWith(`'${propertyName}'`) ||
-          child.getText().startsWith(`${propertyName}:`)) {
+        for (const child of children) {
+          // PropertyAssignmentに相当する判定
+          if (child.getText().startsWith(`"${propertyName}"`) ||
+            child.getText().startsWith(`'${propertyName}'`) ||
+            child.getText().startsWith(`${propertyName}:`)) {
 
-          // 値部分を抽出（テキスト解析）
-          const propText = child.getText();
-          const colonIndex = propText.indexOf(':');
+            // 値部分を抽出（テキスト解析）
+            const propText = child.getText();
+            const colonIndex = propText.indexOf(':');
 
-          if (colonIndex >= 0 && colonIndex < propText.length - 1) {
-            // コロンの後のノードを探す
-            const valueNodes = child.getChildren();
-            // 最初のノードはプロパティ名、2番目はコロン、3番目が値
-            if (valueNodes.length >= 3) {
-              return valueNodes[2];
+            if (colonIndex >= 0 && colonIndex < propText.length - 1) {
+              // コロンの後のノードを探す
+              const valueNodes = child.getChildren();
+              // 最初のノードはプロパティ名、2番目はコロン、3番目が値
+              if (valueNodes.length >= 3) {
+                return valueNodes[2];
+              }
             }
           }
         }
+
+        return undefined;
+      }
+
+      // ts-morph Node の場合
+      try {
+        const objLiteral = this.asNode<import('ts-morph').ObjectLiteralExpression>(node);
+        const property = objLiteral.getProperties()
+          .find(p => Node.isPropertyAssignment(p) && p.getName() === propertyName) as import('ts-morph').PropertyAssignment | undefined;
+
+        if (property) {
+          return property.getInitializer();
+        }
+      } catch {
+        // 型変換に失敗した場合は無視
       }
 
       return undefined;
+    } catch (error) {
+      logger.warn(`Error extracting property value: ${error}`);
+      return undefined;
     }
-
-    // ts-morph Node の場合
-    if (!Node.isObjectLiteralExpression(node)) return undefined;
-
-    const properties = node.getProperties();
-    for (const prop of properties) {
-      if (Node.isPropertyAssignment(prop) && prop.getName() === propertyName) {
-        return prop.getInitializer();
-      }
-    }
-
-    return undefined;
   }
 
   /**
    * オブジェクトリテラルから全プロパティを抽出する関数
    */
   public static extractObjectProperties(node: Node | INode): ObjectProperty[] {
-    // INodeの場合
-    if (this.isINode(node)) {
-      if (!node.isKind(NodeKind.ObjectLiteralExpression)) {
+    try {
+      // INodeの場合
+      if (this.isINode(node)) {
+        if (!node.isKind(NodeKind.ObjectLiteralExpression)) {
+          return [];
+        }
+
+        const properties: ObjectProperty[] = [];
+        const children = node.getChildren().filter(
+          p => p.getText().includes(':') ||
+            (p.getText().startsWith('"') && p.getText().includes(':')) ||
+            (p.getText().startsWith("'") && p.getText().includes(':'))
+        );
+
+        for (const child of children) {
+          // プロパティ名と値を抽出
+          const propText = child.getText();
+          const colonIndex = propText.indexOf(':');
+
+          if (colonIndex > 0) {
+            let propName = propText.substring(0, colonIndex).trim();
+            // クォートがある場合は除去
+            if ((propName.startsWith('"') && propName.endsWith('"')) ||
+              (propName.startsWith("'") && propName.endsWith("'"))) {
+              propName = propName.substring(1, propName.length - 1);
+            }
+
+            // 値部分のノードを探す
+            const valueNodes = child.getChildren();
+            // 最初のノードはプロパティ名、2番目はコロン、3番目が値
+            const value = valueNodes.length >= 3 ? valueNodes[2] : undefined;
+
+            properties.push({
+              name: propName,
+              value: value
+            });
+          }
+        }
+
+        return properties;
+      }
+
+      // ts-morph Node の場合
+      try {
+        const objLiteral = this.asNode<import('ts-morph').ObjectLiteralExpression>(node);
+        return objLiteral.getProperties()
+          .filter(Node.isPropertyAssignment)
+          .map(prop => ({
+            name: prop.getName(),
+            value: prop.getInitializer()
+          }));
+      } catch {
+        logger.debug('Failed to convert node to ObjectLiteralExpression');
         return [];
       }
-
-      const properties: ObjectProperty[] = [];
-      const children = node.getChildren().filter(
-        p => p.getText().includes(':') ||
-          (p.getText().startsWith('"') && p.getText().includes(':')) ||
-          (p.getText().startsWith("'") && p.getText().includes(':'))
-      );
-
-      for (const child of children) {
-        // プロパティ名と値を抽出
-        const propText = child.getText();
-        const colonIndex = propText.indexOf(':');
-
-        if (colonIndex > 0) {
-          let propName = propText.substring(0, colonIndex).trim();
-          // クォートがある場合は除去
-          if ((propName.startsWith('"') && propName.endsWith('"')) ||
-            (propName.startsWith("'") && propName.endsWith("'"))) {
-            propName = propName.substring(1, propName.length - 1);
-          }
-
-          // 値部分を取得
-          let value: INode | undefined = undefined;
-
-          // 値部分のノードを探す
-          const valueNodes = child.getChildren();
-          // 最初のノードはプロパティ名、2番目はコロン、3番目が値
-          if (valueNodes.length >= 3) {
-            value = valueNodes[2];
-          }
-
-          properties.push({
-            name: propName,
-            value: value as any
-          });
-        }
-      }
-
-      return properties;
+    } catch (error) {
+      logger.warn(`Error extracting object properties: ${error}`);
+      return [];
     }
-
-    // ts-morph Node の場合
-    if (!Node.isObjectLiteralExpression(node)) return [];
-
-    const properties: ObjectProperty[] = [];
-    const objectProperties = node.getProperties();
-
-    for (const prop of objectProperties) {
-      if (Node.isPropertyAssignment(prop)) {
-        properties.push({
-          name: prop.getName(),
-          value: prop.getInitializer()
-        });
-      }
-    }
-
-    return properties;
   }
 
   /**
@@ -432,52 +487,64 @@ export class NodeExtractorsExtended {
    * レスポンス変換処理の検出
    */
   public static detectResponseTransformation(node: Node | INode): boolean {
-    // INodeの場合
-    if (this.isINode(node)) {
-      if (node.isKind(NodeKind.Block)) {
-        // ブロック内のステートメント数を確認
-        const children = node.getChildren();
-        if (children.length > 3) { // 単純なreturn以外の複数ステートメントがある場合
+    try {
+      // INodeの場合
+      if (this.isINode(node)) {
+        if (node.isKind(NodeKind.Block)) {
+          // ブロック内のステートメント数を確認
+          const children = node.getChildren();
+          if (children.length > 3) { // 単純なreturn以外の複数ステートメントがある場合
+            return true;
+          }
+
+          // 配列メソッドの呼び出しを検出
+          const hasArrayTransformation = NodeTraversal.findFirstDescendant(
+            node,
+            n => {
+              if (!n.isKind(NodeKind.CallExpression)) return false;
+              const expr = n.getExpression?.();
+              if (!expr || !expr.isKind(NodeKind.PropertyAccessExpression)) return false;
+              const methodName = expr.getName?.();
+              return methodName ? ['map', 'filter', 'reduce', 'transform'].includes(methodName) : false;
+            }
+          );
+
+          if (hasArrayTransformation) return true;
+        }
+
+        return false;
+      }
+
+      // ts-morph Node の場合
+      try {
+        const block = this.asNode<import('ts-morph').Block>(node);
+
+        // 複数のステートメントがある場合は変換処理とみなす
+        if (block.getStatements().length > 1) {
           return true;
         }
 
-        // 配列メソッドの呼び出しを検出
-        const hasArrayTransformation = NodeTraversal.findFirstDescendant(
-          node,
-          n => {
-            if (!n.isKind(NodeKind.CallExpression)) return false;
-            const expr = n.getExpression?.();
-            if (!expr || !expr.isKind(NodeKind.PropertyAccessExpression)) return false;
-            const methodName = expr.getName?.();
-            return methodName ? ['map', 'filter', 'reduce', 'transform'].includes(methodName) : false;
+        // 配列メソッドの変換を検出
+        const hasTransformation = block.getDescendants().some(n => {
+          if (Node.isCallExpression(n)) {
+            const expr = n.getExpression();
+            if (Node.isPropertyAccessExpression(expr)) {
+              const methodName = expr.getName();
+              return ['map', 'filter', 'reduce', 'transform'].includes(methodName);
+            }
           }
-        );
+          return false;
+        });
 
-        if (hasArrayTransformation) return true;
+        return hasTransformation;
+      } catch (e) {
+        logger.debug(`Failed to analyze block node: ${e instanceof Error ? e.message : String(e)}`);
+        return false;
       }
-
+    } catch (error) {
+      logger.warn(`Error detecting response transformation: ${error}`);
       return false;
     }
-
-    // ts-morph Node の場合
-    if (Node.isBlock(node)) {
-      const statements = node.getStatements();
-      if (statements.length > 1) {
-        return true;
-      }
-      const hasArrayTransformation = NodeTraversal.findFirstDescendant(
-        node,
-        n => {
-          if (!Node.isCallExpression(n)) return false;
-          const expr = n.getExpression();
-          if (!Node.isPropertyAccessExpression(expr)) return false;
-          const methodName = expr.getName();
-          return ['map', 'filter', 'reduce', 'transform'].includes(methodName);
-        }
-      );
-      if (hasArrayTransformation) return true;
-    }
-    return false;
   }
 
   /**
@@ -485,233 +552,338 @@ export class NodeExtractorsExtended {
    * INodeインターフェースにも対応
    */
   public static findMethodChain(node: Node | INode): (Node | INode)[] {
-    const chain: (Node | INode)[] = [];
-    let current = node;
+    try {
+      const chain: (Node | INode)[] = [];
 
-    // INodeの場合
-    if (this.isINode(current)) {
-      while (current) {
-        chain.push(current);
+      // INodeの場合
+      if (this.isINode(node)) {
+        let current: INode = node;
+        while (current) {
+          chain.push(current);
 
-        // コール式の場合
-        if (current.isKind(NodeKind.CallExpression)) {
-          const expression = current.getExpression?.();
-          if (expression) {
-            current = expression;
-          } else {
-            break;
+          // コール式の場合
+          if (current.isKind(NodeKind.CallExpression)) {
+            const expression = current.getExpression?.();
+            if (expression && this.isINode(expression)) {
+              current = expression;
+              continue;
+            }
           }
-        }
-        // プロパティアクセス式の場合
-        else if (current.isKind(NodeKind.PropertyAccessExpression)) {
-          const expression = current.getExpression?.();
-          if (expression) {
-            current = expression;
-          } else {
-            break;
+          // プロパティアクセス式の場合
+          else if (current.isKind(NodeKind.PropertyAccessExpression)) {
+            const expression = current.getExpression?.();
+            if (expression && this.isINode(expression)) {
+              current = expression;
+              continue;
+            }
           }
-        }
-        else {
           break;
         }
+        return chain;
       }
-    }
-    // ts-morphのNodeの場合（元の実装）
-    else {
-      // 型安全に処理するためのキャスト
-      const tsNode = this.asNode(current) as Node;
-      let currentNode: Node = tsNode;
-      
-      while (Node.isCallExpression(currentNode) || Node.isPropertyAccessExpression(currentNode)) {
-        chain.push(currentNode);
 
-        if (Node.isCallExpression(currentNode)) {
-          currentNode = currentNode.getExpression();
-        } else {
-          currentNode = currentNode.getExpression();
+      // ts-morphのNodeの場合
+      try {
+        const tsNode = this.asNode<Node>(node);
+        let currentNode: Node | undefined = tsNode;
+
+        // チェーンの追跡
+        while (currentNode) {
+          chain.push(currentNode);
+
+          if (Node.isCallExpression(currentNode)) {
+            currentNode = currentNode.getExpression() || undefined;
+          } else if (Node.isPropertyAccessExpression(currentNode)) {
+            currentNode = currentNode.getExpression() || undefined;
+          } else {
+            break;
+          }
         }
-      }
-      
-      // 最後の要素も追加
-      chain.push(currentNode);
-    }
 
-    return chain;
+        return chain;
+      } catch (e) {
+        logger.debug(`Failed to analyze method chain: ${e instanceof Error ? e.message : String(e)}`);
+        return [node];
+      }
+    } catch (error) {
+      logger.warn(`Error finding method chain: ${error}`);
+      return [node];
+    }
   }
 
   /**
    * コールバック関数のボディを抽出する関数
    */
   public static extractCallbackBody(node: Node | INode): Node | INode | undefined {
-    // INodeの場合
-    if (this.isINode(node)) {
-      if (node.isKind(NodeKind.ArrowFunction)) {
-        // ボディメソッドが実装されている場合
-        if (node.getBody) {
-          return node.getBody();
-        }
-
-        // メソッドがない場合はテキスト解析で代用
-        const text = node.getText();
-        const arrowIndex = text.indexOf('=>');
-
-        if (arrowIndex >= 0 && arrowIndex < text.length - 2) {
-          const bodyText = text.substring(arrowIndex + 2).trim();
-
-          // ブロックボディの場合
-          if (bodyText.startsWith('{') && bodyText.endsWith('}')) {
-            // ボディを表すノードを探す
-            const children = node.getChildren();
-            for (const child of children) {
-              if (child.isKind(NodeKind.Block)) {
-                return child;
-              }
-            }
+    try {
+      // INodeの場合
+      if (this.isINode(node)) {
+        if (node.isKind(NodeKind.ArrowFunction)) {
+          // ボディメソッドが実装されている場合
+          if (typeof node.getBody === 'function') {
+            const body = node.getBody();
+            if (body) return body;
           }
 
-          // 式ボディの場合
-          return node; // ボディだけを分離するのが難しいので、親ノードを返す
+          // メソッドがない場合はテキスト解析で代用
+          const text = node.getText();
+          const arrowIndex = text.indexOf('=>');
+
+          if (arrowIndex >= 0 && arrowIndex < text.length - 2) {
+            const bodyText = text.substring(arrowIndex + 2).trim();
+
+            // ブロックボディの場合
+            if (bodyText.startsWith('{') && bodyText.endsWith('}')) {
+              // ボディを表すノードを探す
+              const blockNode = node.getChildren().find(child =>
+                child.isKind(NodeKind.Block)
+              );
+              if (blockNode) return blockNode;
+            }
+
+            // 式ボディの場合
+            return node; // ボディだけを分離するのが難しいので、親ノードを返す
+          }
         }
+
+        return undefined;
+      }
+
+      // ts-morph Node の場合
+      try {
+        const tsNode = this.asNode<Node>(node);
+        if (Node.isArrowFunction(tsNode)) {
+          const body = tsNode.getBody();
+          return body || undefined;
+        }
+        if (Node.isFunctionExpression(tsNode)) {
+          const body = tsNode.getBody();
+          return body || undefined;
+        }
+      } catch (e) {
+        logger.debug(`Failed to extract callback body: ${e instanceof Error ? e.message : String(e)}`);
       }
 
       return undefined;
+    } catch (error) {
+      logger.warn(`Error extracting callback body: ${error}`);
+      return undefined;
     }
-
-    // ts-morph Node の場合
-    if (Node.isArrowFunction(node) || Node.isFunctionExpression(node)) {
-      return node.getBody();
-    }
-
-    return undefined;
   }
 
   /**
    * 戻り値の型情報を抽出する関数
    */
   public static extractReturnType(node: Node | INode): string | undefined {
-    // INodeの場合
-    if (this.isINode(node)) {
-      const parentFunc = NodeTraversal.findFirstAncestor(
-        node,
-        n => n.isKind(NodeKind.FunctionDeclaration) || n.isKind(NodeKind.MethodDeclaration)
-      );
+    try {
+      // INodeの場合
+      if (this.isINode(node)) {
+        const parentFunc = NodeTraversal.findFirstAncestor(
+          node,
+          n => n.isKind(NodeKind.FunctionDeclaration) || n.isKind(NodeKind.MethodDeclaration)
+        );
 
-      if (parentFunc) {
-        // テキスト解析による型抽出（簡易実装）
-        const text = parentFunc.getText();
-        const returnTypeRegex = /\)[\s:]+([^{]+)(?={|\=>)/;
-        const match = returnTypeRegex.exec(text);
+        if (parentFunc) {
+          // テキスト解析による型抽出（簡易実装）
+          const text = parentFunc.getText();
+          const returnTypeRegex = /\)[\s:]+([^{]+)(?={|\=>)/;
+          const match = returnTypeRegex.exec(text);
 
-        if (match && match[1]) {
-          return match[1].trim();
+          if (match && match[1]) {
+            return match[1].trim();
+          }
         }
+
+        return undefined;
+      }
+
+      // ts-morph Node の場合
+      try {
+        const tsNode = this.asNode<Node>(node);
+        let current: Node | undefined = tsNode;
+
+        // 親をたどって関数コンテキストを探索
+        while (current) {
+          if (Node.isMethodDeclaration(current)) {
+            const returnTypeNode = current.getReturnTypeNode();
+            return returnTypeNode?.getText();
+          }
+          if (Node.isFunctionDeclaration(current)) {
+            const returnTypeNode = current.getReturnTypeNode();
+            return returnTypeNode?.getText();
+          }
+          current = current.getParent();
+        }
+      } catch (e) {
+        logger.debug(`Failed to extract return type: ${e instanceof Error ? e.message : String(e)}`);
       }
 
       return undefined;
+    } catch (error) {
+      logger.warn(`Error extracting return type: ${error}`);
+      return undefined;
     }
-
-    // ts-morph Node の場合
-    const parentFunc = NodeTraversal.findFirstAncestor(
-      node,
-      n => Node.isMethodDeclaration(n) || Node.isFunctionDeclaration(n)
-    );
-
-    if (Node.isMethodDeclaration(parentFunc) || Node.isFunctionDeclaration(parentFunc)) {
-      const returnTypeNode = parentFunc.getReturnTypeNode();
-      return returnTypeNode?.getText();
-    }
-
-    return undefined;
   }
 
   /**
    * await式を探索する関数
    */
   public static findAwaitExpression(node: Node | INode): Node | INode | undefined {
-    // INodeの場合
-    if (this.isINode(node)) {
-      return NodeTraversal.findFirstAncestor(
-        node,
-        // AwaitExpressionがNodeKind列挙型に定義されていない場合のフォールバック
-        n => n.getText().includes('await ')
-      );
-    }
+    try {
+      // INodeの場合
+      if (this.isINode(node)) {
+        // NodeKind.AwaitExpressionのフォールバックとしてテキスト判定
+        const awaitNode = NodeTraversal.findFirstAncestor(
+          node,
+          n => n.getText().trim().startsWith('await ')
+        );
 
-    // ts-morph Node の場合
-    return NodeTraversal.findFirstAncestor(
-      node,
-      n => n.getKind() === SyntaxKind.AwaitExpression
-    );
+        return awaitNode;
+      }
+
+      // ts-morph Node の場合
+      try {
+        const tsNode = this.asNode<Node>(node);
+        let current: Node | undefined = tsNode;
+
+        while (current) {
+          try {
+            if (Node.isAwaitExpression(current)) {
+              return current;
+            }
+          } catch {
+            // 型チェックに失敗した場合は続行
+          }
+          current = current.getParent();
+        }
+      } catch (e) {
+        logger.debug(`Failed to find await expression: ${e instanceof Error ? e.message : String(e)}`);
+      }
+
+      return undefined;
+    } catch (error) {
+      logger.warn(`Error finding await expression: ${error}`);
+      return undefined;
+    }
   }
 
   /**
    * 代入式を探索する関数
    */
   public static findAssignmentExpression(node: Node | INode): Node | INode | undefined {
-    // INodeの場合
-    if (this.isINode(node)) {
-      return NodeTraversal.findFirstAncestor(
-        node,
-        n => n.getText().includes('=') && !n.getText().includes('=>')
-      );
-    }
+    try {
+      // INodeの場合
+      if (this.isINode(node)) {
+        // ただの代入式のみを検出（アロー関数は除外）
+        const assignmentNode = NodeTraversal.findFirstAncestor(
+          node,
+          n => n.getText().includes('=') && !n.getText().includes('=>')
+        );
+        return assignmentNode;
+      }
 
-    // ts-morph Node の場合
-    return NodeTraversal.findFirstAncestor(
-      node,
-      n => n.getKind() === SyntaxKind.BinaryExpression &&
-        n.getFirstDescendantByKind?.(SyntaxKind.EqualsToken) !== undefined
-    );
+      // ts-morph Node の場合
+      const tsNode = this.asNode(node);
+      let current: Node | undefined = tsNode;
+
+      while (current) {
+        const kind = current.getKind();
+        if (kind === SyntaxKind.BinaryExpression) {
+          const firstChild = current.getFirstChild();
+          const operator = firstChild?.getNextSibling();
+          if (operator?.getKind() === SyntaxKind.EqualsToken) {
+            return current;
+          }
+        }
+        current = current.getParent();
+      }
+
+      return undefined;
+    } catch (error) {
+      logger.warn(`Error finding assignment expression: ${error}`);
+      return undefined;
+    }
   }
 
   /**
    * 変数の型アノテーションを抽出する関数
    */
   public static extractVariableTypeAnnotation(node: Node | INode): string | undefined {
-    // INodeの場合
-    if (this.isINode(node)) {
-      if (node.isKind(NodeKind.VariableDeclaration)) {
-        // テキスト解析による型抽出
-        const text = node.getText();
-        const typeRegex = /[\s:]+([^=]+)(?=\s*=|$)/;
-        const match = typeRegex.exec(text);
+    try {
+      // INodeの場合
+      if (this.isINode(node)) {
+        if (node.isKind(NodeKind.VariableDeclaration)) {
+          // テキスト解析による型抽出
+          const text = node.getText();
+          const typeRegex = /[\s:]+([^=]+)(?=\s*=|$)/;
+          const match = typeRegex.exec(text);
 
-        if (match && match[1]) {
-          return match[1].trim();
+          if (match && match[1]) {
+            return match[1].trim();
+          }
+        }
+
+        return undefined;
+      }
+
+      // ts-morph Node の場合
+      const tsNode = this.asNode(node);
+      if (Node.isVariableDeclaration(tsNode)) {
+        const typeNode = tsNode.getTypeNode();
+        if (typeNode) {
+          return typeNode.getText();
         }
       }
 
       return undefined;
+    } catch (error) {
+      logger.warn(`Error extracting variable type annotation: ${error}`);
+      return undefined;
     }
-
-    // ts-morph Node の場合
-    if (Node.isVariableDeclaration(node)) {
-      const typeNode = node.getTypeNode();
-      return typeNode?.getText();
-    }
-
-    return undefined;
   }
 
   /**
    * ノードの開始位置の行と列を取得する関数
    */
   public static getStartLineAndColumn(node: Node | INode): { line: number; column: number } {
-    // INodeの場合
-    if ('getLocation' in node && typeof node.getLocation === 'function') {
-      const location = node.getLocation();
-      return {
-        line: location.line,
-        column: location.column
-      };
+    try {
+      // INodeの場合
+      if (this.isINode(node)) {
+        if ('getLocation' in node && typeof node.getLocation === 'function') {
+          const location = node.getLocation();
+          if (location) {
+            return {
+              line: location.line,
+              column: location.column
+            };
+          }
+        }
+        // getLocationを持たない場合はデフォルト値を返す
+        return { line: 1, column: 0 };
+      }
+
+      // ts-morph Node の場合
+      try {
+        const tsNode = this.asNode<Node>(node);
+        const sourceFile = tsNode.getSourceFile();
+        const start = tsNode.getStart();
+        if (typeof start !== 'number') {
+          logger.debug('Failed to get start position');
+          return { line: 1, column: 0 };
+        }
+        const position = sourceFile.getLineAndColumnAtPos(start);
+        return {
+          line: position.line,
+          column: position.column
+        };
+      } catch (e) {
+        logger.debug(`Failed to get position: ${e instanceof Error ? e.message : String(e)}`);
+        return { line: 1, column: 0 };
+      }
+    } catch (error) {
+      logger.warn(`Error getting start line and column: ${error}`);
+      return { line: 1, column: 0 };
     }
-
-    // ts-morph Node の場合
-    const sourceFile = node.getSourceFile();
-    const start = node.getStart();
-    const { line, column } = sourceFile.getLineAndColumnAtPos(start);
-
-    return { line, column };
   }
 
   /**
@@ -743,27 +915,36 @@ export class NodeExtractorsExtended {
     }
 
     // ts-morph Node の場合
-    if (Node.isVariableDeclaration(node)) {
-      const typeNode = node.getTypeNode();
-      if (typeNode) {
-        typeInfos.push({
-          typeName: typeNode.getText(),
-          location: this.getNodeLocation(typeNode)
-        });
-      }
-    }
+    try {
+      const tsNode = this.asNode(node);
 
-    if (Node.isParameterDeclaration(node)) {
-      const typeNode = node.getTypeNode();
-      if (typeNode) {
-        typeInfos.push({
-          typeName: typeNode.getText(),
-          location: this.getNodeLocation(typeNode)
-        });
+      // 変数宣言のチェック
+      if (Node.isVariableDeclaration(tsNode)) {
+        const typeNode = tsNode.getTypeNode();
+        if (typeNode) {
+          typeInfos.push({
+            typeName: typeNode.getText(),
+            location: this.getNodeLocation(typeNode)
+          });
+        }
       }
-    }
 
-    return typeInfos;
+      // パラメータ宣言のチェック
+      if (Node.isParameterDeclaration(tsNode)) {
+        const typeNode = tsNode.getTypeNode();
+        if (typeNode) {
+          typeInfos.push({
+            typeName: typeNode.getText(),
+            location: this.getNodeLocation(typeNode)
+          });
+        }
+      }
+
+      return typeInfos;
+    } catch (error) {
+      logger.warn(`Error extracting type annotation: ${error}`);
+      return [];
+    }
   }
 
   /**
@@ -864,45 +1045,49 @@ export class NodeExtractorsExtended {
       return 'unknown';
     }
 
-    // ts-morph Node の場合（元の実装）
-    const functionContext = NodeTraversal.findFirstAncestor(
-      node,
-      n => Node.isFunctionDeclaration(n) ||
-        Node.isMethodDeclaration(n) ||
-        Node.isArrowFunction(n)
-    );
+    try {
+      // ts-morph Node の場合
+      const tsNode = this.asNode(node);
+      let current: Node | undefined = tsNode;
 
-    if (functionContext) {
-      if (Node.isFunctionDeclaration(functionContext)) {
-        const name = functionContext.getName();
-        return name ? name : '(無名関数)';
-      }
-      if (Node.isMethodDeclaration(functionContext)) {
-        const name = functionContext.getName();
-        return name ? name : '(無名メソッド)';
-      }
-      if (Node.isArrowFunction(functionContext)) {
-        const parent = functionContext.getParent();
-        if (parent && Node.isVariableDeclaration(parent)) {
-          const name = parent.getName();
-          return name ? name : '(アロー関数)';
+      // 関数コンテキストを探す
+      while (current) {
+        if (Node.isFunctionDeclaration(current)) {
+          const name = current.getName();
+          return name || '(無名関数)';
         }
-        return '(アロー関数)';
+        if (Node.isMethodDeclaration(current)) {
+          const name = current.getName();
+          return name || '(無名メソッド)';
+        }
+        if (Node.isArrowFunction(current)) {
+          const parent = current.getParent();
+          if (Node.isVariableDeclaration(parent)) {
+            const name = parent.getName();
+            return name || '(アロー関数)';
+          }
+          return '(アロー関数)';
+        }
+        current = current.getParent();
       }
+
+      // 関数が見つからなければ、クラスコンテキストを探す
+      current = tsNode;
+      while (current) {
+        if (Node.isClassDeclaration(current)) {
+          const name = current.getName();
+          return name || '(無名クラス)';
+        }
+        current = current.getParent();
+      }
+
+      // クラスも見つからなければ、ファイル名を返す
+      const sourceFile = tsNode.getSourceFile();
+      return sourceFile.getBaseName().replace(/\.[^/.]+$/, '');
+    } catch (error) {
+      logger.warn(`Error inferring node context: ${error}`);
+      return 'unknown';
     }
-
-    const classContext = NodeTraversal.findFirstAncestor(
-      node,
-      n => Node.isClassDeclaration(n)
-    );
-
-    if (classContext && Node.isClassDeclaration(classContext)) {
-      const name = classContext.getName();
-      return name ? name : '(無名クラス)';
-    }
-
-    const sourceFile = node.getSourceFile();
-    return sourceFile.getBaseName().replace(/\.[^/.]+$/, '');
   }
 
   /**
@@ -913,25 +1098,46 @@ export class NodeExtractorsExtended {
    */
   public static getTypeFromChecker(node: Node | INode, typeChecker: TypeChecker): string {
     try {
-      // INodeの場合は内部ノードを取得
+      // INodeの場合
       if (this.isINode(node)) {
-        if (typeof node.getInternalNode === 'function') {
-          const internalNode = node.getInternalNode();
-          // 内部ノードが存在すればTypeCheckerで型を取得
-          if (internalNode) {
-            const type = typeChecker.getTypeAtLocation(internalNode);
-            return type ? type.getText() : '';
-          }
+        const internalNode = typeof node.getInternalNode === 'function' ? node.getInternalNode() : null;
+        if (!internalNode) {
+          logger.debug('Internal node not available for INode');
+          return '';
         }
-        // getInternalNodeメソッドが実装されていない場合は失敗
+
+        try {
+          const type = typeChecker.getTypeAtLocation(internalNode);
+          if (!type) {
+            logger.debug('No type information available for node');
+            return '';
+          }
+          return type.getText();
+        } catch (e) {
+          logger.debug(`Error getting type from internal node: ${e instanceof Error ? e.message : String(e)}`);
+          return '';
+        }
+      }
+
+      // ts-morph Nodeの場合
+      const tsNode = this.asNode(node);
+      if (!tsNode) {
+        logger.debug('Failed to convert to ts-morph Node');
         return '';
       }
 
-      // ts-morph Nodeの場合は直接TypeCheckerを使用
-      const type = typeChecker.getTypeAtLocation(node);
-      return type ? type.getText() : '';
+      try {
+        const type = typeChecker.getTypeAtLocation(tsNode);
+        if (!type) {
+          logger.debug('No type information available for ts-morph node');
+          return '';
+        }
+        return type.getText();
+      } catch (error) {
+        logger.debug(`Error getting type from ts-morph node: ${error instanceof Error ? error.message : String(error)}`);
+        return '';
+      }
     } catch (error) {
-      // 型取得エラーは無視して空文字を返す
       logger.warn(`Type checker error: ${error instanceof Error ? error.message : String(error)}`);
       return '';
     }
