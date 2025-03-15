@@ -7,6 +7,8 @@
 
 import { mock, instance, when, anything } from 'ts-mockito';
 import { SourceFile, TypeChecker, SyntaxKind } from 'ts-morph';
+import { adaptMockSourceFileInstance } from '../helpers/mock-adapters';
+import { ISourceFile } from '../../src/core/ast/interfaces/ISourceFile';
 import { FetchDetectionStrategy } from '../../src/detectors/http/FetchDetectionStrategy';
 import { ServiceLocator, ServiceIds } from '../../src/core/ServiceLocator';
 import { 
@@ -109,7 +111,7 @@ describe('FetchDetectionStrategy', () => {
     
     // 検出コンテキストの準備
     context = {
-      sourceFile: instance(mockSourceFile),
+      sourceFile: adaptMockSourceFileInstance(mockSourceFile),
       typeChecker: instance(mockTypeChecker),
       configuration: {
         targetDirectory: '/test',
@@ -137,7 +139,7 @@ describe('FetchDetectionStrategy', () => {
         .thenThrow(new Error('テスト用エラー'));
       
       // テスト対象の実行
-      const result = strategy.detect(instance(mockSourceFile), context);
+      const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
       
       // 検証
       expect(result).toEqual([]);
@@ -150,7 +152,7 @@ describe('FetchDetectionStrategy', () => {
   describe.skip('標準的なfetch関数の検出 (実際の実行ではスキップ)', () => {
     it('基本的なfetch()呼び出しを検出できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
-      const result = strategy.detect(instance(mockSourceFile), context);
+      const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
       
       // 検証例
       expect(result.length).toBeGreaterThanOrEqual(0);
@@ -158,7 +160,7 @@ describe('FetchDetectionStrategy', () => {
     
     it('window.fetch()呼び出しを検出できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
-      const result = strategy.detect(instance(mockSourceFile), context);
+      const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
       
       // 検証例
       expect(result.length).toBeGreaterThanOrEqual(0);
@@ -166,7 +168,7 @@ describe('FetchDetectionStrategy', () => {
     
     it('オプション付きのfetch呼び出しを検出できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
-      const result = strategy.detect(instance(mockSourceFile), context);
+      const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
       
       // 検証例
       expect(result.length).toBeGreaterThanOrEqual(0);
@@ -176,7 +178,7 @@ describe('FetchDetectionStrategy', () => {
   describe.skip('カスタムFetchラッパーの検出 (実際の実行ではスキップ)', () => {
     it('カスタムフェッチラッパー関数を検出できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
-      const result = strategy.detect(instance(mockSourceFile), context);
+      const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
       
       // 検証例
       expect(result.length).toBeGreaterThanOrEqual(0);
@@ -184,7 +186,7 @@ describe('FetchDetectionStrategy', () => {
     
     it('名前にHTTPメソッドを含む関数からメソッドを推測できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
-      const result = strategy.detect(instance(mockSourceFile), context);
+      const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
       
       // 検証例
       expect(result.length).toBeGreaterThanOrEqual(0);

@@ -7,6 +7,8 @@
 
 import { mock, instance, when, anything } from 'ts-mockito';
 import { SourceFile, TypeChecker, SyntaxKind } from 'ts-morph';
+import { adaptMockSourceFileInstance } from '../helpers/mock-adapters';
+import { ISourceFile } from '../../src/core/ast/interfaces/ISourceFile';
 import { CustomApiClientStrategy } from '../../src/detectors/http/CustomApiClientStrategy';
 import { ServiceLocator, ServiceIds } from '../../src/core/ServiceLocator';
 import { 
@@ -109,7 +111,7 @@ describe('CustomApiClientStrategy', () => {
     
     // 検出コンテキストの準備
     context = {
-      sourceFile: instance(mockSourceFile),
+      sourceFile: adaptMockSourceFileInstance(mockSourceFile),
       typeChecker: instance(mockTypeChecker),
       configuration: {
         targetDirectory: '/test',
@@ -137,7 +139,7 @@ describe('CustomApiClientStrategy', () => {
         .thenThrow(new Error('テスト用エラー'));
       
       // テスト対象の実行
-      const result = strategy.detect(instance(mockSourceFile), context);
+      const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
       
       // 検証
       expect(result).toEqual([]);
@@ -150,7 +152,7 @@ describe('CustomApiClientStrategy', () => {
   describe.skip('APIクライアント検出 (実際の実行ではスキップ)', () => {
     it('シンプルなHTTPクライアントクラスのメソッド呼び出しを検出できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
-      const result = strategy.detect(instance(mockSourceFile), context);
+      const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
       
       // 検証例
       expect(result.length).toBeGreaterThanOrEqual(0);
@@ -158,7 +160,7 @@ describe('CustomApiClientStrategy', () => {
     
     it('認証付きAPIクライアントのメソッド呼び出しを検出できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
-      const result = strategy.detect(instance(mockSourceFile), context);
+      const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
       
       // 検証例
       expect(result.length).toBeGreaterThanOrEqual(0);
@@ -168,7 +170,7 @@ describe('CustomApiClientStrategy', () => {
   describe.skip('サービスクラス検出 (実際の実行ではスキップ)', () => {
     it('ドメイン特化型サービスクラスのメソッド呼び出しを検出できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
-      const result = strategy.detect(instance(mockSourceFile), context);
+      const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
       
       // 検証例
       expect(result.length).toBeGreaterThanOrEqual(0);
@@ -176,7 +178,7 @@ describe('CustomApiClientStrategy', () => {
     
     it('エンドポイントパスを正しく解析できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
-      const result = strategy.detect(instance(mockSourceFile), context);
+      const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
       
       // 検証例
       expect(result.length).toBeGreaterThanOrEqual(0);
@@ -186,7 +188,7 @@ describe('CustomApiClientStrategy', () => {
   describe.skip('HTTPパターン検出 (実際の実行ではスキップ)', () => {
     it('RESTスタイルのエンドポイントパターンを検出できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
-      const result = strategy.detect(instance(mockSourceFile), context);
+      const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
       
       // 検証例
       expect(result.length).toBeGreaterThanOrEqual(0);
@@ -194,7 +196,7 @@ describe('CustomApiClientStrategy', () => {
     
     it('GraphQLクライアントのラッパーメソッドを検出できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
-      const result = strategy.detect(instance(mockSourceFile), context);
+      const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
       
       // 検証例
       expect(result.length).toBeGreaterThanOrEqual(0);
@@ -221,7 +223,7 @@ describe('CustomApiClientStrategy', () => {
   describe('モック環境での基本テスト', () => {
     it('空の結果を返すこと（モック環境）', () => {
       // このテストは実際のts-morph依存なしで実行可能
-      const result = strategy.detect(instance(mockSourceFile), context);
+      const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
       expect(Array.isArray(result)).toBe(true);
     });
   });
