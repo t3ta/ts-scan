@@ -104,10 +104,10 @@ export class TsMorphFunctionAdapter extends TsMorphNodeAdapter implements IFunct
    * 関数の本体部分のノードを取得する
    * @returns 関数本体のノード
    */
-  public getBody(): INode | null {
+  public getBody(): INode | undefined {
     const body = this.functionNode.getBody();
     if (!body) {
-      return null;
+      return undefined;
     }
     return new TsMorphNodeAdapter(body);
   }

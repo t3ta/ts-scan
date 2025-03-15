@@ -147,4 +147,84 @@ export class TsMorphSourceFileAdapter implements ISourceFile {
   public getInternalSourceFile(): SourceFile {
     return this.sourceFile;
   }
+  
+  /**
+   * INodeインターフェースの実装
+   * 多くはrootNodeAdapterに委譲する
+   */
+
+  /**
+   * ノードの種類を取得する
+   * @returns ノードの種類
+   */
+  public getKind(): NodeKind {
+    return NodeKind.SourceFile;
+  }
+  
+  /**
+   * ノードの位置情報を取得する
+   * @returns ノードの位置情報
+   */
+  public getLocation(): { line: number; column: number; start: number; end: number } {
+    return this.rootNodeAdapter.getLocation();
+  }
+  
+  /**
+   * 親ノードを取得する
+   * @returns 親ノード（ルートノードの場合はnull）
+   */
+  public getParent(): INode | null {
+    return null; // ソースファイルはルートなので親は存在しない
+  }
+  
+  /**
+   * 子ノードを取得する
+   * @returns 子ノードの配列
+   */
+  public getChildren(): INode[] {
+    return this.rootNodeAdapter.getChildren();
+  }
+  
+  /**
+   * 特定の条件に一致する子孫ノードを検索する
+   * @param predicate ノードをフィルタリングするための述語関数
+   * @param recursive 再帰的に検索するかどうか
+   * @returns 条件に一致するノードの配列
+   */
+  public findDescendants(predicate: (node: INode) => boolean, recursive: boolean = true): INode[] {
+    return this.rootNodeAdapter.findDescendants(predicate, recursive);
+  }
+  
+  /**
+   * 特定の種類のノードかどうかを判定する
+   * @param kind 判定対象のノード種類
+   * @returns 指定された種類のノードであればtrue
+   */
+  public isKind(kind: NodeKind): boolean {
+    return kind === NodeKind.SourceFile;
+  }
+  
+  /**
+   * 実装固有の内部ノードオブジェクトを取得する
+   * @returns 内部ノードオブジェクト
+   */
+  public getInternalNode(): any {
+    return this.sourceFile;
+  }
+  
+  /**
+   * このノードが属するソースファイルを取得する
+   * @returns ノードが含まれるソースファイル
+   */
+  public getSourceFile(): any {
+    return this; // 自身がソースファイル
+  }
+  
+  /**
+   * このノードの全ての先祖ノードを取得する
+   * @returns 先祖ノードの配列
+   */
+  public getAncestors(): INode[] {
+    return []; // ルートノードなので先祖は存在しない
+  }
 }

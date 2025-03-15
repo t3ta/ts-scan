@@ -96,10 +96,14 @@ export class TsMorphParameterAdapter extends TsMorphNodeAdapter implements IPara
   
   /**
    * パラメータの初期化子ノード（= の右側）を取得する
-   * @returns 初期化子ノード（存在しない場合はnull）
+   * @returns 初期化子ノード（存在しない場合はundefined）
    */
-  public getInitializer(): INode | null {
-    return this.getDefaultValue();
+  public getInitializer(): INode | undefined {
+    const initializer = this.parameterNode.getInitializer();
+    if (!initializer) {
+      return undefined;
+    }
+    return new TsMorphNodeAdapter(initializer);
   }
   
   /**

@@ -91,12 +91,12 @@ export class TsMorphVariableAdapter extends TsMorphNodeAdapter implements IVaria
   
   /**
    * 変数の初期化子（= の右側）を取得する
-   * @returns 初期化子ノード（存在しない場合はnull）
+   * @returns 初期化子ノード（存在しない場合はundefined）
    */
-  public getInitializer(): INode | null {
+  public getInitializer(): INode | undefined {
     const initializer = this.variableNode.getInitializer();
     if (!initializer) {
-      return null;
+      return undefined;
     }
     return new TsMorphNodeAdapter(initializer);
   }
@@ -182,15 +182,15 @@ export class TsMorphVariableAdapter extends TsMorphNodeAdapter implements IVaria
   
   /**
    * リテラル初期化子の場合、その値を文字列として取得する
-   * @returns リテラル値の文字列表現（リテラルでない場合はnull）
+   * @returns リテラル値の文字列表現（リテラルでない場合は空文字列）
    */
-  public getLiteralValue(): string | null {
+  public getLiteralValue(): string {
     if (!this.hasLiteralInitializer()) {
-      return null;
+      return '';
     }
     
     const initializer = this.variableNode.getInitializer();
-    return initializer ? initializer.getText() : null;
+    return initializer ? initializer.getText() : '';
   }
   
   /**

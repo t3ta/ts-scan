@@ -67,9 +67,9 @@ class SimpleTsMorphPropertyAdapter extends TsMorphNodeAdapter implements IProper
     return 'none';
   }
   
-  getInitializer(): any {
+  getInitializer(): INode | undefined {
     const initializer = this.propertyNode.getInitializer();
-    return initializer ? new TsMorphNodeAdapter(initializer) : null;
+    return initializer ? new TsMorphNodeAdapter(initializer) : undefined;
   }
   
   hasInitializer(): boolean {
@@ -139,9 +139,13 @@ class ConstructorAdapter extends TsMorphNodeAdapter implements IFunction {
     return null;
   }
   
-  getBody(): INode | null {
+  /**
+   * 関数の本体部分のノードを取得する
+   * @returns 関数本体のノード
+   */
+  getBody(): INode | undefined {
     const body = this.constructorNode.getBody();
-    return body ? new TsMorphNodeAdapter(body) : null;
+    return body ? new TsMorphNodeAdapter(body) : undefined;
   }
   
   isArrowFunction(): boolean {
