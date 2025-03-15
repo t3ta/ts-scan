@@ -134,9 +134,17 @@ describe('CustomApiClientStrategy', () => {
     });
     
     it('エラーハンドリングが機能すること', () => {
-      // エラーを投げる検出器をシミュレート
-      when(mockSourceFile.getDescendantsOfKind(SyntaxKind.CallExpression))
-        .thenThrow(new Error('テスト用エラー'));
+      // モック検出器を作成し、エラーをスローするようにセットアップ
+      const mockDetector = {
+        patternName: 'TestDetector',
+        detectAndExtract: jest.fn().mockImplementation(() => {
+          throw new Error('テスト用エラー');
+        })
+      };
+
+      // 戦略インスタンスの検出器を上書き
+      // @ts-ignore - privateプロパティへのアクセス
+      strategy.detectors = [mockDetector];
       
       // テスト対象の実行
       const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);

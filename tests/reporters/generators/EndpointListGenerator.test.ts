@@ -19,7 +19,7 @@ jest.mock('../../../src/utils/statistics', () => ({
       '認証': []
     };
     
-    endpoints.forEach(endpoint => {
+    endpoints.forEach((endpoint: any) => {
       if (endpoint.path.includes('/users')) {
         categories['ユーザー管理'].push(endpoint);
       } else if (endpoint.path.includes('/products')) {
