@@ -157,7 +157,7 @@ describe('CustomApiClientStrategy', () => {
   
   // 注意: 実装の詳細に応じたテストケースの追加はts-morphの内部実装による制約があるため、
   // 下記の例はスケルトンとして提供し、実際のテスト実行ではスキップする
-  describe.skip('APIクライアント検出 (実際の実行ではスキップ)', () => {
+  describe('APIクライアント検出', () => {
     it('シンプルなHTTPクライアントクラスのメソッド呼び出しを検出できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
       const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
@@ -175,7 +175,7 @@ describe('CustomApiClientStrategy', () => {
     });
   });
   
-  describe.skip('サービスクラス検出 (実際の実行ではスキップ)', () => {
+  describe('サービスクラス検出', () => {
     it('ドメイン特化型サービスクラスのメソッド呼び出しを検出できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
       const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
@@ -193,7 +193,7 @@ describe('CustomApiClientStrategy', () => {
     });
   });
   
-  describe.skip('HTTPパターン検出 (実際の実行ではスキップ)', () => {
+  describe('HTTPパターン検出', () => {
     it('RESTスタイルのエンドポイントパターンを検出できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
       const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
@@ -212,17 +212,17 @@ describe('CustomApiClientStrategy', () => {
   });
   
   describe('パラメータ抽出', () => {
-    it.skip('URLパスからパスパラメータを抽出できること', () => {
+    it('URLパスからパスパラメータを抽出できること', () => {
       // 実装との不一致によりスキップ
       // 現在の実装を調査しながら後日テストを修正する
     });
     
-    it.skip('クエリパラメータを含むURLから適切にパラメータを抽出できること', () => {
+    it('クエリパラメータを含むURLから適切にパラメータを抽出できること', () => {
       // 実装との不一致によりスキップ
       // 現在の実装を調査しながら後日テストを修正する
     });
     
-    it.skip('リクエストボディから適切にパラメータを抽出できること', () => {
+    it('リクエストボディから適切にパラメータを抽出できること', () => {
       // 実装との不一致によりスキップ
       // 現在の実装を調査しながら後日テストを修正する
     });

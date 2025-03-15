@@ -219,7 +219,7 @@ describe('StatisticsGenerator', () => {
     });
     
     // 実装に存在しないセクションのためテストをスキップ
-    it.skip('頻出エンドポイントリストを生成する', () => {
+    it('頻出エンドポイントリストを生成する', () => {
       // Act
       const statistics = generator.generateStatisticsSection(mockResult);
       

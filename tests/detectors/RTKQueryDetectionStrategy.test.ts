@@ -159,7 +159,7 @@ describe('RTKQueryDetectionStrategy', () => {
   
   // 注意: 実装の詳細に応じたテストケースの追加はts-morphの内部実装による制約があるため、
   // 下記の例はスケルトンとして提供し、実際のテスト実行ではスキップする
-  describe.skip('createApi検出 (実際の実行ではスキップ)', () => {
+  describe('createApi検出', () => {
     it('createApi呼び出しを検出できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
       const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
@@ -169,7 +169,7 @@ describe('RTKQueryDetectionStrategy', () => {
     });
   });
   
-  describe.skip('エンドポイント定義検出 (実際の実行ではスキップ)', () => {
+  describe('エンドポイント定義検出', () => {
     it('builder.queryエンドポイントを検出できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
       const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
@@ -187,7 +187,7 @@ describe('RTKQueryDetectionStrategy', () => {
     });
   });
   
-  describe.skip('エンドポイント使用検出 (実際の実行ではスキップ)', () => {
+  describe('エンドポイント使用検出', () => {
     it('useQueryフックの使用を検出できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
       const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
@@ -205,7 +205,7 @@ describe('RTKQueryDetectionStrategy', () => {
     });
   });
   
-  describe.skip('パラメータとURLパス検出 (実際の実行ではスキップ)', () => {
+  describe('パラメータとURLパス検出', () => {
     it('文字列リテラルURLを正しく解析できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
       const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
@@ -231,7 +231,7 @@ describe('RTKQueryDetectionStrategy', () => {
     });
   });
   
-  describe.skip('型情報を活用した検出 (実際の実行ではスキップ)', () => {
+  describe('型情報を活用した検出', () => {
     it('ジェネリック型情報からレスポンス型を抽出できること', () => {
       // テスト内容のスケルトン - 実装は環境に依存
       const result = strategy.detect(adaptMockSourceFileInstance(mockSourceFile), context);
@@ -250,7 +250,7 @@ describe('RTKQueryDetectionStrategy', () => {
   });
   
   describe('エンドポイント種別の分類', () => {
-    it.skip('クエリとミューテーションを正しく分類できること', () => {
+    it('クエリとミューテーションを正しく分類できること', () => {
       // 実装との不一致によりスキップ
       // 現在の実装を調査しながら後日テストを修正する
     });
