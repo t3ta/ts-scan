@@ -2,14 +2,14 @@
 
 ## 型互換性と抽象化レイヤーの実装進捗
 
-feature/ts-morph-dep ブランチにおける作業は、ポート・アンド・アダプターパターンの考え方に基づく抽象化レイヤーの実装が大きく進展し、型互換性の問題も解決に向かっているのだ。複数のファイルで型ガードを導入し、型エラーを解消したのだ。
+feature/ts-morph-dep ブランチにおける作業は、ポート・アンド・アダプターパターンの考え方に基づく抽象化レイヤーの実装が大きく進展し、型互換性の問題も解決されつつあるのだ。複数のファイルで型ガードを導入し、型エラーを解消したのだ。
 
 現在の作業における主な成果は以下の通りなのだ：
 
 1. **型互換性の問題解決**
    - `isINode` と `isTsMorphNode` 型ガード関数を各ファイルに導入
    - オプショナルチェイニングと安全なメソッド呼び出しパターンの確立
-   - `(node as any).isKind(NodeKind.CallExpression)` のような型キャストの適用
+   - `hasMethod` や `hasPropertyOfType` といった型ガードヘルパー関数の導入
 
 2. **SyntaxKind名前空間の導入**
    - `NodeKind` と `SyntaxKind` の互換性を保つための名前空間実装
@@ -28,26 +28,25 @@ feature/ts-morph-dep ブランチにおける作業は、ポート・アンド�
    columnNumber: location.columnNumber ?? 1,
    ```
 
-4. **ファイル修正の進捗**
+4. **ファイル修正の完了**
    - `NodeTraversal.ts` と `NodePredicates.ts` の修正完了
    - `FetchDetectionStrategy.ts` の修正完了
    - `ServiceMethodDetector.ts`, `HttpPatternDetector.ts`, `ApiClientMethodCallDetector.ts` の修正完了
    - `AxiosDetectionStrategy.ts` の修正完了
+   - `PatternDetector.ts` のエラー解消完了
+   - `DefaultDetectionStrategy.ts` のエラー解消完了
    - `ISourceFile` が `INode` を継承するよう修正
-   - `MockNode.ts` と `MockSourceFile.ts` の修正完了（複数インターフェースの実装と型互換性の確保）
-   - アダプタークラスの型互換性エラー修正完了 (`TsMorphVariableAdapter`, `TsMorphFunctionAdapter`, `TsMorphParameterAdapter`, `TsMorphClassAdapter`)
+   - `MockNode.ts` と `MockSourceFile.ts` の修正完了
+   - アダプタークラスの型互換性エラー修正完了
 
 ## 現在取り組んでいる課題
 
 現在、以下の課題に取り組んでいるのだ：
 
-1. **最後の数ファイルのエラー解消**
-   - `PatternDetector.ts` のエラー解消
-   - `DefaultDetectionStrategy.ts` のエラー解消
-
-2. **テストの復活**
-   - 修正したコードに対するテストの有効化
-   - スキップテストの解除
+1. **テストの修正と有効化**
+   - テストコードにおける`SourceFile`と`ISourceFile`の型互換性問題の解決
+   - `AnalyzerEngine.test.ts`の問題解決（ts-morphの`Cannot read properties of undefined (reading 'native')`エラー）
+   - モックインターフェースの実装強化
 
 ## 今アクティブな決定事項
 
@@ -59,54 +58,55 @@ feature/ts-morph-dep ブランチにおける作業は、ポート・アンド�
 2. **型ガードパターンの標準化**
    - 以下のパターンを標準として採用
    ```typescript
-   if ('isKind' in node && typeof node.isKind === 'function') {
-     // INodeとして安全に扱える
+   function isINode(node: any): node is INode {
+     return node && 'isKind' in node && typeof node.isKind === 'function';
    }
    ```
 
 3. **安全なメソッド呼び出し手法**
-   - オプショナルチェイニングと存在確認を組み合わせたアプローチ
+   - ヘルパー関数と条件チェックを組み合わせたアプローチ
    ```typescript
-   const hasGetExpression = 'getExpression' in node && typeof node.getExpression === 'function';
-   if (hasGetExpression) {
-     const expr = (node as any).getExpression();
-     // 安全に操作
+   function hasMethod(obj: any, methodName: string): boolean {
+     return obj && methodName in obj && typeof obj[methodName] === 'function';
    }
+   
+   const hasExpression = hasMethod(node, 'getExpression');
+   const expr = hasExpression && typeof node.getExpression === 'function' ? node.getExpression() : null;
    ```
 
-4. **型キャストの標準化**
-   - 必要最小限の型キャストの原則
-   - `as INode` や `as unknown as IParameter` など、目的の型を明確にする
-   - アダプターメソッドの最後に型キャストを集中させる
+4. **型互換性の確保手法**
+   - インターフェースの継承関係の見直し（ISourceFileがINodeを継承）
+   - 型ガードと安全なアクセスパターンの組み合わせ
+   - 必要最小限の型キャストの使用
 
 ## 今アクティブな課題
 
-1. **残りのモジュールの修正**
-   - パターン検出器の抽象化インターフェース対応
-   - 検出戦略クラスのリファクタリング
+1. **テスト環境の安定化**
+   - テストコードの修正とモック実装の強化
+   - 型互換性問題の解決（SourceFile → ISourceFile）
 
 2. **ts-morph固有の型の扱い**
    - TypeCheckerなどの特殊な型の扱いの検討
    - 完全な抽象化が難しい部分の対処方法
 
-3. **大量のキャスト処理の改善**
-   - 型ガードユーティリティの充実
-   - 型互換性ヘルパー関数の追加
+3. **CI/CD環境での安定性**
+   - テスト環境における依存関係問題の解決
+   - スキップテストの有効化
 
 ## 次のステップ
 
-1. **残りのエラー解消**
-   - 残り数ファイルのエラー修正
-   - 標準化したパターンの適用
+1. **テストの修正と実行**
+   - `CustomApiClientStrategy.test.ts`など型互換性問題のあるテストの修正
+   - `AnalyzerEngine.test.ts`のエラー解消
 
-2. **テストの復帰**
-   - 修正したテストの実行と確認
-   - 欠落しているテスト実装の追加
+2. **スキップテストの有効化**
+   - `.skip`を使用しているテストの有効化と検証
+   - テスト環境の安定性確認
 
-3. **ドキュメント化**
-   - 採用したパターンの文書化
-   - アーキテクチャ設計の説明
+3. **パフォーマンスとドキュメント**
+   - パフォーマンス最適化（必要な場合）
+   - アーキテクチャと設計パターンのドキュメント化
 
-型互換性エラーの解消が完了し、プロジェクトが正常にビルドできる状態になりました。型ガードとオプショナルチェイニングを組み合わせた安全なアクセスパターンの確立により、抽象化レイヤーとts-morphの実装の橋渡しがスムーズになり、プロジェクト全体の型安全性を維持しながら抽象化を進められるようになったのだ。
+型互換性エラーの解消が完了し、プロジェクトが正常にビルドできる状態になったのだ。型ガードとオプショナルチェイニングを組み合わせた安全なアクセスパターンの確立により、抽象化レイヤーとts-morphの実装の橋渡しがスムーズになり、プロジェクト全体の型安全性を維持しながら抽象化を進められるようになったのだ。
 
-次のフェーズとしては、`PatternDetector.ts` と `DefaultDetectionStrategy.ts` の残りのエラーを解消し、テストの有効化と検証を進める予定なのだ。
+次のフェーズとしては、テストコードの修正と有効化に焦点を当て、抽象化レイヤーの安定性と堅牢性を向上させていくのだ。
