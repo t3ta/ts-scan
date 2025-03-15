@@ -12,6 +12,28 @@ import { JsonReporter } from '../../src/reporters/JsonReporter';
 import { MarkdownReporter } from '../../src/reporters/markdown/MarkdownReporter';
 import { AnalysisResult, EndpointInfo, HttpMethod, EndpointSource } from '../../src/types';
 
+// chalkモジュールのモック化
+jest.mock('chalk', () => ({
+  blue: jest.fn(text => text),
+  red: jest.fn(text => text),
+  green: jest.fn(text => text),
+  gray: jest.fn(text => text),
+  yellow: jest.fn(text => text),
+  cyan: jest.fn(text => text)
+}));
+
+// ロガーのモック化
+jest.mock('../../src/utils/Logger', () => ({
+  logger: {
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    success: jest.fn(),
+    section: jest.fn()
+  }
+}));
+
 // fs関連関数のモック化
 jest.mock('fs', () => ({
   writeFileSync: jest.fn(),

@@ -20,13 +20,19 @@ jest.mock('../../../src/utils/statistics', () => ({
   })
 }));
 
+// データ型を明示的に定義
+interface ChartData {
+  label: string;
+  value: number;
+}
+
 // グラフ生成関数のモック化
 jest.mock('../../../src/utils/statistics/graphs', () => ({
-  generateMermaidPieChart: jest.fn().mockImplementation((data, title) => 
-    `\`\`\`mermaid\npie title ${title}\n${data.map(d => `    "${d.label}" : ${d.value}`).join('\n')}\n\`\`\`\n`
+  generateMermaidPieChart: jest.fn().mockImplementation((data: ChartData[], title: string) => 
+    `\`\`\`mermaid\npie title ${title}\n${data.map((d: ChartData) => `    "${d.label}" : ${d.value}`).join('\n')}\n\`\`\`\n`
   ),
-  generateMermaidBarChart: jest.fn().mockImplementation((data, title, xLabel, yLabel) => 
-    `\`\`\`mermaid\nbar title ${title}\n    x-axis [${xLabel}]\n    y-axis [${yLabel}]\n${data.map(d => `    "${d.label}" : ${d.value}`).join('\n')}\n\`\`\`\n`
+  generateMermaidBarChart: jest.fn().mockImplementation((data: ChartData[], title: string, xLabel: string, yLabel: string) => 
+    `\`\`\`mermaid\nbar title ${title}\n    x-axis [${xLabel}]\n    y-axis [${yLabel}]\n${data.map((d: ChartData) => `    "${d.label}" : ${d.value}`).join('\n')}\n\`\`\`\n`
   )
 }));
 
