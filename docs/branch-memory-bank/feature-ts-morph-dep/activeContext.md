@@ -43,10 +43,10 @@ feature/ts-morph-dep ブランチにおける作業は、ポート・アンド�
 
 現在、以下の課題に取り組んでいるのだ：
 
-1. **テストの修正と有効化**
-   - テストコードにおける`SourceFile`と`ISourceFile`の型互換性問題の解決
+1. **テストの保守と有効化**
+   - ✔️ テストコードにおける`SourceFile`と`ISourceFile`の型互換性問題の解決（MockSourceFileAdapterの実装）
    - `AnalyzerEngine.test.ts`の問題解決（ts-morphの`Cannot read properties of undefined (reading 'native')`エラー）
-   - モックインターフェースの実装強化
+   - テストのロジックやモックの動作設定の改善
 
 ## 今アクティブな決定事項
 
