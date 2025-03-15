@@ -5,7 +5,9 @@
  * フォールバックとして機能し、可能な限り多くのエンドポイントを検出することを目的としています。
  */
 
-import { Node, SourceFile, SyntaxKind } from 'ts-morph';
+import { SourceFile } from 'ts-morph';
+import { INode, NodeKind, SyntaxKind } from '../core/ast/interfaces/INode';
+import { ISourceFile } from '../core/ast/interfaces/ISourceFile';
 import { BaseDetectionStrategy } from './common/BaseDetectionStrategy';
 import { BasePatternDetector } from './common/PatternDetector';
 import {
@@ -16,7 +18,6 @@ import {
   ResponseUsage,
   UsageLocation
 } from '../types';
-// import { NodePredicates } from '../utils/ast/NodePredicates';
 import { NodeExtractors } from '../utils/ast/NodeExtractors';
 import { NodeExtractorsExtended } from '../utils/ast/NodeExtractorsExtended';
 import { ServiceIds } from '../core/ServiceLocator';
@@ -29,12 +30,7 @@ import { logger } from '../utils/Logger';
 class StringLiteralUrlDetector extends BasePatternDetector {
   readonly patternName = 'StringLiteralUrl';
 
-  /**
-   * URLパターンを含む文字列リテラルを検出
-   * @param node 検査対象ノード
-   * @returns パターンに一致するか否か
-   */
-  public canHandle(node: Node): boolean {
+  public canHandle(node: INode): boolean {
     if (!node.isKind(SyntaxKind.StringLiteral)) {
       return false;
     }
@@ -52,13 +48,7 @@ class StringLiteralUrlDetector extends BasePatternDetector {
     return isUrlLike;
   }
 
-  /**
-   * 文字列リテラルからエンドポイント情報を抽出
-   * @param node 対象ノード
-   * @param context 検出コンテキスト
-   * @returns 抽出されたエンドポイント情報配列
-   */
-  public extractEndpoints(node: Node, context: DetectionContext): EndpointInfo[] {
+  public extractEndpoints(node: INode, context: DetectionContext): EndpointInfo[] {
     if (!node.isKind(SyntaxKind.StringLiteral)) {
       return [];
     }
@@ -71,9 +61,9 @@ class StringLiteralUrlDetector extends BasePatternDetector {
 
     // 親ノードを探索してメソッドを推測
     const parent = node.getParent();
-    const grandParent = parent?.getParent();
+    const grandParent = parent ? parent.getParent() : null;
 
-    if (parent?.isKind(SyntaxKind.ObjectLiteralExpression)) {
+    if (parent && parent.isKind(SyntaxKind.ObjectLiteralExpression)) {
       // オブジェクトリテラルのプロパティとしての文字列の場合
       // 例: { url: '/api/users', method: 'GET' }
       const methodProp = NodeExtractorsExtended.extractPropertyValue(parent, 'method');
@@ -83,12 +73,13 @@ class StringLiteralUrlDetector extends BasePatternDetector {
           httpMethod = methodValue.toUpperCase() as HttpMethod;
         }
       }
-    } else if (parent?.isKind(SyntaxKind.ArrayLiteralExpression)) {
+    } else if (parent && parent.isKind(SyntaxKind.ArrayLiteralExpression)) {
       // 配列の要素としての文字列の場合
       // 推測困難なので変更なし
-    } else if (grandParent?.isKind(SyntaxKind.CallExpression)) {
+    } else if (grandParent && grandParent.isKind(SyntaxKind.CallExpression)) {
       // 関数呼び出しの引数としての文字列の場合
-      const funcExpr = grandParent.getExpression();
+      const funcExpr = grandParent.getExpression ? grandParent.getExpression() : null;
+      if (!funcExpr) return [];
       const funcName = funcExpr.getText().toLowerCase();
 
       // 関数名からメソッドを推測
@@ -151,16 +142,8 @@ class StringLiteralUrlDetector extends BasePatternDetector {
     return [endpoint];
   }
 
-  /**
-   * 使用箇所の詳細情報を作成
-   * @param node ノード
-   * @param sourceFile ソースファイル
-   * @param context コンテキスト情報
-   * @returns 使用箇所詳細情報
-   */
-  private createUsageLocation(node: Node, sourceFile: SourceFile, context?: string): UsageLocation {
+  private createUsageLocation(node: INode, sourceFile: ISourceFile, context?: string): UsageLocation {
     // 行および列情報のデフォルト値を設定
-    // TypeScriptの型エラー回避のため、startPos変数は削除
     const lineNumber = 1;
     const columnNumber = 1;
 
@@ -187,12 +170,7 @@ class StringLiteralUrlDetector extends BasePatternDetector {
 class TemplateLiteralUrlDetector extends BasePatternDetector {
   readonly patternName = 'TemplateLiteralUrl';
 
-  /**
-   * URLパターンを含むテンプレートリテラルを検出
-   * @param node 検査対象ノード
-   * @returns パターンに一致するか否か
-   */
-  public canHandle(node: Node): boolean {
+  public canHandle(node: INode): boolean {
     if (!node.isKind(SyntaxKind.TemplateExpression) && !node.isKind(SyntaxKind.NoSubstitutionTemplateLiteral)) {
       return false;
     }
@@ -208,13 +186,7 @@ class TemplateLiteralUrlDetector extends BasePatternDetector {
     return isUrlLike;
   }
 
-  /**
-   * テンプレートリテラルからエンドポイント情報を抽出
-   * @param node 対象ノード
-   * @param context 検出コンテキスト
-   * @returns 抽出されたエンドポイント情報配列
-   */
-  public extractEndpoints(node: Node, context: DetectionContext): EndpointInfo[] {
+  public extractEndpoints(node: INode, context: DetectionContext): EndpointInfo[] {
     // テンプレートリテラルからURL文字列を抽出
     let urlTemplate = '';
 
@@ -236,11 +208,12 @@ class TemplateLiteralUrlDetector extends BasePatternDetector {
 
     // 親ノードからメソッドを推測
     const parent = node.getParent();
-    const grandParent = parent?.getParent();
+    const grandParent = parent ? parent.getParent() : null;
 
-    if (grandParent?.isKind(SyntaxKind.CallExpression)) {
+    if (grandParent && grandParent.isKind(SyntaxKind.CallExpression)) {
       // 関数呼び出しの引数としての場合
-      const funcExpr = grandParent.getExpression();
+      const funcExpr = grandParent.getExpression ? grandParent.getExpression() : null;
+      if (!funcExpr) return [];
       const funcName = funcExpr.getText().toLowerCase();
 
       // 関数名からメソッドを推測
@@ -314,29 +287,36 @@ class TemplateLiteralUrlDetector extends BasePatternDetector {
    * @param node テンプレート式ノード
    * @returns 抽出されたURL文字列（パラメータはプレースホルダーに置換）
    */
-  private extractTemplateUrl(node: Node): string {
+  private extractTemplateUrl(node: INode): string {
     if (!node.isKind(SyntaxKind.TemplateExpression)) {
       return '';
     }
 
     // テンプレートの各部分を抽出
-    const templateHead = node.getFirstDescendantByKind(SyntaxKind.TemplateHead);
-    const templateSpans = node.getDescendantsOfKind(SyntaxKind.TemplateSpan);
+    const templateHeadNodes = node.findDescendants(n => n.isKind(SyntaxKind.TemplateHead), true);
+    const templateSpans = node.findDescendants(n => n.isKind(SyntaxKind.TemplateSpan), true);
 
-    if (!templateHead) {
+    if (templateHeadNodes.length === 0) {
       return '';
     }
+    
+    const templateHead = templateHeadNodes[0];
 
     // テンプレート文字列を再構築
     let result = templateHead.getText().replace(/^`/, '');
 
     for (const span of templateSpans) {
-      const expr = span.getExpression();
-      const middle = span.getFirstDescendantByKind(SyntaxKind.TemplateMiddle);
-      const tail = span.getFirstDescendantByKind(SyntaxKind.TemplateTail);
+      const expr = span.getExpression ? span.getExpression() : null;
+      const middleNodes = span.findDescendants(n => n.isKind(SyntaxKind.TemplateMiddle), true);
+      const tailNodes = span.findDescendants(n => n.isKind(SyntaxKind.TemplateTail), true);
+      
+      const middle = middleNodes.length > 0 ? middleNodes[0] : null;
+      const tail = tailNodes.length > 0 ? tailNodes[0] : null;
 
       // 式の部分をプレースホルダーに置換
-      result += `\${${expr.getText()}}`;
+      if (expr) {
+        result += `\${${expr.getText()}}`;
+      }
 
       // 残りのテンプレート部分を追加
       if (middle) {
@@ -349,14 +329,7 @@ class TemplateLiteralUrlDetector extends BasePatternDetector {
     return result;
   }
 
-  /**
-   * 使用箇所の詳細情報を作成
-   * @param node ノード
-   * @param sourceFile ソースファイル
-   * @param context コンテキスト情報
-   * @returns 使用箇所詳細情報
-   */
-  private createUsageLocation(node: Node, sourceFile: SourceFile, context?: string): UsageLocation {
+  private createUsageLocation(node: INode, sourceFile: ISourceFile, context?: string): UsageLocation {
     // 行および列情報のデフォルト値を設定
     const lineNumber = 1;
     const columnNumber = 1;
@@ -384,12 +357,7 @@ class TemplateLiteralUrlDetector extends BasePatternDetector {
 class ObjectLiteralUrlDetector extends BasePatternDetector {
   readonly patternName = 'ObjectLiteralUrl';
 
-  /**
-   * URLを含むオブジェクトリテラルを検出
-   * @param node 検査対象ノード
-   * @returns パターンに一致するか否か
-   */
-  public canHandle(node: Node): boolean {
+  public canHandle(node: INode): boolean {
     if (!node.isKind(SyntaxKind.ObjectLiteralExpression)) {
       return false;
     }
@@ -428,13 +396,7 @@ class ObjectLiteralUrlDetector extends BasePatternDetector {
     return Boolean(isApiUrl) || (Boolean(urlValue) && hasApiRelatedProps);
   }
 
-  /**
-   * オブジェクトリテラルからエンドポイント情報を抽出
-   * @param node 対象ノード
-   * @param context 検出コンテキスト
-   * @returns 抽出されたエンドポイント情報配列
-   */
-  public extractEndpoints(node: Node, context: DetectionContext): EndpointInfo[] {
+  public extractEndpoints(node: INode, context: DetectionContext): EndpointInfo[] {
     if (!node.isKind(SyntaxKind.ObjectLiteralExpression)) {
       return [];
     }
@@ -498,15 +460,19 @@ class ObjectLiteralUrlDetector extends BasePatternDetector {
 
     // paramsプロパティからクエリパラメータを抽出
     const paramsProp = NodeExtractorsExtended.extractPropertyValue(node, 'params');
-    if (paramsProp && paramsProp.isKind(SyntaxKind.ObjectLiteralExpression)) {
-      const paramProps = NodeExtractorsExtended.extractObjectProperties(paramsProp);
+    if (paramsProp && 'isKind' in paramsProp && typeof paramsProp.isKind === 'function') {
+      // 型ガードが通過したので、キャストして安全に使用
+      const typedNode = paramsProp as INode;
+      if (typedNode.isKind(SyntaxKind.ObjectLiteralExpression)) {
+        const paramProps = NodeExtractorsExtended.extractObjectProperties(typedNode);
 
-      for (const prop of paramProps) {
-        params.push({
-          name: prop.name,
-          type: 'query',
-          locations: [location]
-        });
+        for (const prop of paramProps) {
+          params.push({
+            name: prop.name,
+            type: 'query',
+            locations: [location]
+          });
+        }
       }
     }
 
@@ -514,39 +480,51 @@ class ObjectLiteralUrlDetector extends BasePatternDetector {
     const dataProp = NodeExtractorsExtended.extractPropertyValue(node, 'data');
     const bodyProp = NodeExtractorsExtended.extractPropertyValue(node, 'body');
 
-    if (dataProp && dataProp.isKind(SyntaxKind.ObjectLiteralExpression)) {
-      const dataProps = NodeExtractorsExtended.extractObjectProperties(dataProp);
+    if (dataProp && 'isKind' in dataProp && typeof dataProp.isKind === 'function') {
+      // 型ガードが通過したので、キャストして安全に使用
+      const typedNode = dataProp as INode;
+      if (typedNode.isKind(SyntaxKind.ObjectLiteralExpression)) {
+        const dataProps = NodeExtractorsExtended.extractObjectProperties(typedNode);
 
-      for (const prop of dataProps) {
-        params.push({
-          name: prop.name,
-          type: 'body',
-          locations: [location]
-        });
+        for (const prop of dataProps) {
+          params.push({
+            name: prop.name,
+            type: 'body',
+            locations: [location]
+          });
+        }
       }
-    } else if (bodyProp && bodyProp.isKind(SyntaxKind.ObjectLiteralExpression)) {
-      const bodyProps = NodeExtractorsExtended.extractObjectProperties(bodyProp);
-
-      for (const prop of bodyProps) {
-        params.push({
-          name: prop.name,
-          type: 'body',
-          locations: [location]
-        });
+    } else if (bodyProp && 'isKind' in bodyProp && typeof bodyProp.isKind === 'function') {
+      // 型ガードが通過したので、キャストして安全に使用
+      const typedNode = bodyProp as INode;
+      if (typedNode.isKind(SyntaxKind.ObjectLiteralExpression)) {
+        const bodyProps = NodeExtractorsExtended.extractObjectProperties(typedNode);
+  
+        for (const prop of bodyProps) {
+          params.push({
+            name: prop.name,
+            type: 'body',
+            locations: [location]
+          });
+        }
       }
     }
 
     // headersプロパティからヘッダーパラメータを抽出
     const headersProp = NodeExtractorsExtended.extractPropertyValue(node, 'headers');
-    if (headersProp && headersProp.isKind(SyntaxKind.ObjectLiteralExpression)) {
-      const headerProps = NodeExtractorsExtended.extractObjectProperties(headersProp);
+    if (headersProp && 'isKind' in headersProp && typeof headersProp.isKind === 'function') {
+      // 型ガードが通過したので、キャストして安全に使用
+      const typedNode = headersProp as INode;
+      if (typedNode.isKind(SyntaxKind.ObjectLiteralExpression)) {
+        const headerProps = NodeExtractorsExtended.extractObjectProperties(typedNode);
 
-      for (const prop of headerProps) {
-        params.push({
-          name: prop.name,
-          type: 'header',
-          locations: [location]
-        });
+        for (const prop of headerProps) {
+          params.push({
+            name: prop.name,
+            type: 'header',
+            locations: [location]
+          });
+        }
       }
     }
 
@@ -571,14 +549,7 @@ class ObjectLiteralUrlDetector extends BasePatternDetector {
     return [endpoint];
   }
 
-  /**
-   * 使用箇所の詳細情報を作成
-   * @param node ノード
-   * @param sourceFile ソースファイル
-   * @param context コンテキスト情報
-   * @returns 使用箇所詳細情報
-   */
-  private createUsageLocation(node: Node, sourceFile: SourceFile, context?: string): UsageLocation {
+  private createUsageLocation(node: INode, sourceFile: ISourceFile, context?: string): UsageLocation {
     // 行および列情報のデフォルト値を設定
     const lineNumber = 1;
     const columnNumber = 1;
@@ -619,7 +590,7 @@ export class DefaultDetectionStrategy extends BaseDetectionStrategy {
    * @param context 検出コンテキスト
    * @returns 検出されたエンドポイント情報配列
    */
-  protected performDetection(sourceFile: SourceFile, context: DetectionContext): EndpointInfo[] {
+  protected performDetection(sourceFile: ISourceFile, context: DetectionContext): EndpointInfo[] {
     logger.debug(`[${this.name}] 検出開始: ${sourceFile.getFilePath()}`);
 
     // 各検出器を順番に実行
@@ -650,7 +621,7 @@ export class DefaultDetectionStrategy extends BaseDetectionStrategy {
    * @param sourceFile 解析対象ソースファイル
    * @param context 検出コンテキスト
    */
-  protected prepareDetection(sourceFile: SourceFile, _context: DetectionContext): void {
+  protected prepareDetection(sourceFile: ISourceFile, _context: DetectionContext): void {
     // APIプレフィックス正規表現を適用するための前処理
     logger.debug(`[${this.name}] ${sourceFile.getFilePath()} の前処理を実行`);
   }

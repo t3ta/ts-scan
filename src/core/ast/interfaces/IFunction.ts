@@ -47,7 +47,7 @@ export interface IFunction extends INode {
    * 関数の本体部分のノードを取得する
    * @returns 関数本体のノード
    */
-  getBody(): INode | null;
+  getBody(): INode | undefined;
   
   /**
    * 関数がArrow Function（アロー関数）かどうかを判定する

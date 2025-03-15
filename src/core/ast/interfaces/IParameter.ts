@@ -50,9 +50,9 @@ export interface IParameter extends INode {
   
   /**
    * パラメータの初期化子ノード（= の右側）を取得する
-   * @returns 初期化子ノード（存在しない場合はnull）
+   * @returns 初期化子ノード（存在しない場合はundefined）
    */
-  getInitializer(): INode | null;
+  getInitializer(): INode | undefined;
   
   /**
    * パラメータの修飾子を取得する（public, private, protected, readonly など）

@@ -47,9 +47,9 @@ export interface IVariable extends INode {
   
   /**
    * 変数の初期化子（= の右側）を取得する
-   * @returns 初期化子ノード（存在しない場合はnull）
+   * @returns 初期化子ノード（存在しない場合はundefined）
    */
-  getInitializer(): INode | null;
+  getInitializer(): INode | undefined;
   
   /**
    * 変数が初期化子を持つかどうかを判定する
@@ -89,7 +89,7 @@ export interface IVariable extends INode {
   
   /**
    * リテラル初期化子の場合、その値を文字列として取得する
-   * @returns リテラル値の文字列表現（リテラルでない場合はnull）
+   * @returns リテラル値の文字列表現（リテラルでない場合は空文字列）
    */
-  getLiteralValue(): string | null;
+  getLiteralValue(): string;
 }

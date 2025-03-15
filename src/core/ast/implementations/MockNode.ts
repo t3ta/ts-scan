@@ -248,6 +248,22 @@ export class MockNode implements INode, IFunction {
 
     return null;
   }
+  
+  /**
+   * このノードの全ての先祖ノードを取得する
+   * @returns 先祖ノードの配列
+   */
+  getAncestors(): INode[] {
+    const ancestors: INode[] = [];
+    let current = this.getParent();
+    
+    while (current) {
+      ancestors.push(current);
+      current = current.getParent();
+    }
+    
+    return ancestors;
+  }
 
   /**
    * 引数ノードの配列を取得する

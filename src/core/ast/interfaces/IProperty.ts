@@ -55,9 +55,9 @@ export interface IProperty extends INode {
   
   /**
    * プロパティの初期化子（= の右側）を取得する
-   * @returns 初期化子ノード（存在しない場合はnull）
+   * @returns 初期化子ノード（存在しない場合はundefined）
    */
-  getInitializer(): INode | null;
+  getInitializer(): INode | undefined;
   
   /**
    * プロパティが初期化子を持つかどうかを判定する

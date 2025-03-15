@@ -8,7 +8,7 @@
 import { 
   Project, 
   SourceFile, 
-  Node as TsMorphNode, 
+  Node as TsMorphNode,
   SyntaxKind 
 } from 'ts-morph';
 import * as fs from 'fs';
@@ -16,6 +16,9 @@ import * as path from 'path';
 import { NodeKind } from '../interfaces/INode';
 import { ASTSnapshot, ASTNodeSnapshot } from '../implementations/MockProvider';
 import { convertSyntaxKindToNodeKind } from '../adapters/TsMorphNodeAdapter';
+
+// 型エイリアスを定義
+type PropertyExtractorMap = Record<number, (node: any) => Record<string, any>>;
 
 /**
  * ノードの子孫を最大どの深さまで処理するかのデフォルト値
@@ -39,7 +42,7 @@ export function serializeNode(
   node: TsMorphNode,
   maxDepth: number = DEFAULT_MAX_DEPTH,
   currentDepth: number = 0,
-  propertyExtractors: Record<SyntaxKind, (node: any) => Record<string, any>> = {}
+  propertyExtractors: PropertyExtractorMap = {}
 ): ASTNodeSnapshot {
   // 深さ制限を超えた場合は子ノードを処理しない
   const shouldProcessChildren = currentDepth < maxDepth;
@@ -96,7 +99,7 @@ export function serializeNode(
  */
 export function createSourceFileSnapshot(
   sourceFile: SourceFile,
-  propertyExtractors: Record<SyntaxKind, (node: any) => Record<string, any>> = {}
+  propertyExtractors: PropertyExtractorMap = {}
 ): ASTSnapshot {
   return {
     filePath: sourceFile.getFilePath(),
@@ -119,7 +122,7 @@ export function createSourceFileSnapshot(
 export function createSnapshotFromCode(
   code: string,
   fileName: string = 'snapshot.ts',
-  propertyExtractors: Record<SyntaxKind, (node: any) => Record<string, any>> = {}
+  propertyExtractors: PropertyExtractorMap = {}
 ): ASTSnapshot {
   const project = new Project();
   const sourceFile = project.createSourceFile(fileName, code);
@@ -134,7 +137,7 @@ export function createSnapshotFromCode(
  */
 export function createSnapshotFromFile(
   filePath: string,
-  propertyExtractors: Record<SyntaxKind, (node: any) => Record<string, any>> = {}
+  propertyExtractors: PropertyExtractorMap = {}
 ): ASTSnapshot {
   const project = new Project();
   const sourceFile = project.addSourceFileAtPath(filePath);

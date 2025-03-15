@@ -88,6 +88,7 @@ export enum NodeKind {
   TypeAliasDeclaration,
   VariableDeclaration,
   MethodDeclaration,
+  VariableStatement,
   
   // 式
   CallExpression,
@@ -101,6 +102,10 @@ export enum NodeKind {
   TemplateExpression,
   PropertyAssignment,
   ShorthandPropertyAssignment,
+  TemplateHead,
+  TemplateSpan,
+  TemplateMiddle,
+  TemplateTail,
   
   // 文
   ExpressionStatement,
@@ -111,6 +116,7 @@ export enum NodeKind {
   // インポート/エクスポート
   ImportDeclaration,
   ExportDeclaration = 7,
+  ExportKeyword,
   
   // リテラル
   TrueLiteral,
@@ -135,8 +141,17 @@ export namespace SyntaxKind {
   export const StringLiteral = NodeKind.StringLiteral;
   export const ArrowFunction = NodeKind.ArrowFunction;
   export const ObjectLiteralExpression = NodeKind.ObjectLiteralExpression;
+  export const ArrayLiteralExpression = NodeKind.ArrayLiteralExpression;
   export const PropertyAssignment = NodeKind.PropertyAssignment;
   export const NoSubstitutionTemplateLiteral = NodeKind.NoSubstitutionTemplateLiteral;
+  export const TemplateExpression = NodeKind.TemplateExpression;
+  export const TemplateHead = NodeKind.TemplateHead;
+  export const TemplateSpan = NodeKind.TemplateSpan;
+  export const TemplateMiddle = NodeKind.TemplateMiddle;
+  export const TemplateTail = NodeKind.TemplateTail;
+  export const VariableStatement = NodeKind.VariableStatement;
+  export const ExportKeyword = NodeKind.ExportKeyword;
+  export const VariableDeclaration = NodeKind.VariableDeclaration;
 }
 
 /**
