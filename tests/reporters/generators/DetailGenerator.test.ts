@@ -1,37 +1,14 @@
 /**
- * 詳細情報ジェネレーターのテスト
- * 
+ * 詳細ジェネレーターのテスト
+ *
  * @description
- * マークダウンレポーターの詳細情報ジェネレーターコンポーネントを検証するテストスイート。
- * エンドポイント詳細情報とエラーセクション生成ロジックを単体検証します。
+ * マークダウンレポーターの詳細ジェネレーターコンポーネントを検証するテストスイート。
+ * エンドポイントの詳細情報とエラー情報生成ロジックを単体検証します。
  */
 
 import { DetailGenerator } from '../../../src/reporters/markdown/generators/DetailGenerator';
-import { AnalysisResult, EndpointInfo, HttpMethod, EndpointSource, ParameterType, ResponseHandlingType } from '../../../src/types';
-
-// DetailGeneratorの実装をモック
-jest.mock('../../../src/reporters/markdown/generators/DetailGenerator', () => {
-  const originalModule = jest.requireActual('../../../src/reporters/markdown/generators/DetailGenerator');
-  return {
-    DetailGenerator: jest.fn().mockImplementation(() => {
-      return {
-        generateDetailedEndpoints: jest.fn().mockImplementation((result) => {
-          if (result.endpoints.length === 0) {
-            return '## エンドポイント詳細情報\n\n検出されたエンドポイントはありません。\n';
-          }
-          return '## エンドポイント詳細情報\n\n### GET /api/users\n\n**使用技術**: axios\n\n```typescript\naxios.get("/api/users")\n```\n';
-        }),
-        generateErrorSection: jest.fn().mockImplementation((result) => {
-          if (result.errors.length === 0) {
-            return '';
-          }
-          return '## 解析エラー\n\n解析中に以下のエラーが発生しました:\n\n' + 
-            result.errors.map((error: string, index: number) => `${index + 1}. ${error}`).join('\n');
-        })
-      };
-    })
-  };
-});
+import { AnalysisResult, EndpointInfo, HttpMethod, EndpointSource, ParameterType } from '../../../src/types';
+import { createMockAnalysisResult, createMockEndpoint, assertMarkdownSection, assertMarkdownSubSection } from '../../helpers/mockData';
 
 describe('DetailGenerator', () => {
   let generator: DetailGenerator;
@@ -40,212 +17,268 @@ describe('DetailGenerator', () => {
   beforeEach(() => {
     // ジェネレーターインスタンスを作成
     generator = new DetailGenerator();
-    
+
     // モック解析結果データを作成
-    mockResult = {
+    mockResult = createMockAnalysisResult({
       endpoints: [
-        // 詳細な情報を持つGETエンドポイント
-        {
+        createMockEndpoint({
           path: '/api/users',
           method: 'GET' as HttpMethod,
           isDynamic: false,
           usageLocations: [
-            {
-              filePath: '/path/to/file.ts',
-              lineNumber: 10,
-              columnNumber: 5,
-              context: 'fetchUsers',
-              codeSnippet: 'axios.get("/api/users")'
-            }
+            { filePath: '/path/to/file1.ts', lineNumber: 10, columnNumber: 5, context: 'ユーザー一覧取得' },
+            { filePath: '/path/to/file2.ts', lineNumber: 15, columnNumber: 8, context: 'ダッシュボード表示' }
           ],
           parametersUsed: [
             {
-              name: 'limit',
+              name: 'page',
               type: 'query' as ParameterType,
-              required: false,
-              defaultValue: '10',
-              locations: [
-                {
-                  filePath: '/path/to/file.ts',
-                  lineNumber: 12,
-                  columnNumber: 7,
-                  context: 'fetchUsers',
-                  codeSnippet: 'params: { limit }'
-                }
-              ]
+              required: true,
+              locations: [{ filePath: '/path/to/file1.ts', lineNumber: 10, columnNumber: 25 }]
             }
           ],
-          responseHandling: [
-            {
-              type: 'typed' as ResponseHandlingType,
-              typeName: 'User[]',
-              location: {
-                filePath: '/path/to/response.ts',
-                lineNumber: 15,
-                columnNumber: 3,
-                context: 'handleUsersResponse',
-                codeSnippet: 'const users: User[] = response.data;'
-              }
-            }
-          ],
-          source: 'axios',
-          apiVersion: 'v1',
-          featureCategory: 'user-management'
-        },
-        // 動的パスパラメータを持つGETエンドポイント
-        {
-          path: '/api/users/:id',
+          source: 'axios' as EndpointSource,
+          featureCategory: 'ユーザー管理',
+          apiVersion: 'v1'
+        }),
+        createMockEndpoint({
+          path: '/api/products/:id',
           method: 'GET' as HttpMethod,
           isDynamic: true,
           usageLocations: [
-            {
-              filePath: '/path/to/details.ts',
-              lineNumber: 30,
-              columnNumber: 5,
-              context: 'getUserDetails',
-              codeSnippet: 'axios.get(`/api/users/${userId}`)'
-            }
+            { filePath: '/path/to/file3.ts', lineNumber: 20, columnNumber: 12, context: '商品詳細取得' }
           ],
           parametersUsed: [
             {
               name: 'id',
               type: 'path' as ParameterType,
               required: true,
-              locations: [
-                {
-                  filePath: '/path/to/details.ts',
-                  lineNumber: 32,
-                  columnNumber: 7,
-                  context: 'getUserDetails',
-                  codeSnippet: '`/api/users/${userId}`'
-                }
-              ]
+              locations: [{ filePath: '/path/to/file3.ts', lineNumber: 20, columnNumber: 30 }]
             }
           ],
-          responseHandling: [
-            {
-              type: 'transformation' as ResponseHandlingType,
-              location: {
-                filePath: '/path/to/details.ts',
-                lineNumber: 35,
-                columnNumber: 3,
-                context: 'handleUserDetailsResponse',
-                codeSnippet: 'return { ...response.data, lastAccessed: new Date() };'
-              }
-            }
-          ],
-          source: 'axios',
+          source: 'rtk-query' as EndpointSource,
+          featureCategory: '商品管理',
           apiVersion: 'v1',
-          featureCategory: 'user-management'
-        }
+          rtkQuerySpecific: {
+            isQuery: true,
+            isMutation: false,
+            transformResponseUsed: true,
+            baseQueryUsed: true,
+            apiName: 'productApi',
+            builderName: 'getProduct'
+          }
+        })
       ],
       statistics: {
         totalEndpoints: 2,
-        methodDistribution: { 
-          GET: 2,
-          POST: 0,
-          PUT: 0,
-          DELETE: 0,
-          PATCH: 0,
-          OPTIONS: 0,
-          HEAD: 0
-        } as Record<HttpMethod, number>,
-        sourceDistribution: { 
-          'axios': 2,
-          'rtk-query': 0,
+        methodDistribution: { GET: 2, POST: 0, PUT: 0, DELETE: 0, PATCH: 0, OPTIONS: 0, HEAD: 0 },
+        sourceDistribution: {
+          'axios': 1,
+          'rtk-query': 1,
           'fetch': 0,
           'custom-client': 0,
           'default': 0,
           'v2-endpoint': 0
-        } as Record<EndpointSource, number>,
-        apiVersionDistribution: { v1: 2 },
-        featureCategoryDistribution: { 'user-management': 2 },
+        },
+        apiVersionDistribution: { 'v1': 2 },
+        featureCategoryDistribution: { 'ユーザー管理': 1, '商品管理': 1 },
         mostUsedEndpoints: [
-          { path: '/api/users', count: 1 },
-          { path: '/api/users/:id', count: 1 }
+          { path: '/api/users', count: 2 },
+          { path: '/api/products/:id', count: 1 }
         ],
-        pathParameterUsage: { id: 1 },
+        pathParameterUsage: { 'id': 1 },
         dynamicEndpoints: 1,
         rtkQueryUsage: {
-          totalEndpoints: 0,
-          queries: 0,
+          totalEndpoints: 1,
+          queries: 1,
           mutations: 0,
-          transformResponseUsage: 0
+          transformResponseUsage: 1
         }
       },
-      analyzedAt: new Date('2023-01-01T00:00:00Z'),
-      configuration: {
-        targetDirectory: '/path/to/project'
-      },
-      analyzedFiles: ['/path/to/file.ts', '/path/to/response.ts', '/path/to/details.ts'],
-      errors: []
-    };
+      errors: ['Error 1: 解析エラー', 'Error 2: 型情報不足']
+    });
   });
 
   describe('generateDetailedEndpoints', () => {
-    it('すべてのエンドポイントの詳細情報を生成する', () => {
+    it('基本的なエンドポイント詳細情報を正しく生成する', () => {
       // Act
-      const details = generator.generateDetailedEndpoints(mockResult);
-      
+      const content = generator.generateDetailedEndpoints(mockResult);
+
       // Assert
-      // エンドポイントの詳細情報セクションが存在するか
-      expect(details).toContain('## エンドポイント詳細情報');
-      
-      // 基本情報が含まれているか
-      expect(details).toContain('**使用技術**: axios');
-      
-      // コードスニペットが含まれているか
-      expect(details).toContain('```typescript');
-      expect(details).toContain('axios.get("/api/users")');
+      // セクションヘッダーの確認
+      assertMarkdownSection(content, 'エンドポイント詳細情報');
+
+      // エンドポイント情報の確認
+      expect(content).toContain('### `GET /api/users`');
+      expect(content).toContain('### `GET /api/products/:id`');
+
+      // 基本情報の確認
+      expect(content).toContain('**使用箇所数:** 2');
+      expect(content).toContain('**カテゴリ:** ユーザー管理');
+      expect(content).toContain('**APIバージョン:** v1');
+      expect(content).toContain('**動的パス:** いいえ');
+      expect(content).toContain('**検出元:** Axios');
     });
-    
-    it('エンドポイントが存在しない場合は適切なメッセージを表示する', () => {
+
+    it('エンドポイント数が100件以上の場合は表示を制限する', () => {
       // Arrange
-      const emptyResult = {
+      const manyEndpoints = {
         ...mockResult,
-        endpoints: [],
+        endpoints: Array(101).fill(mockResult.endpoints[0]).map((e, i) => ({
+          ...e,
+          path: `/api/endpoint${i}`
+        })),
         statistics: {
           ...mockResult.statistics,
-          totalEndpoints: 0
+          totalEndpoints: 101
         }
       };
-      
+
       // Act
-      const details = generator.generateDetailedEndpoints(emptyResult);
-      
+      const content = generator.generateDetailedEndpoints(manyEndpoints);
+
       // Assert
-      expect(details).toContain('## エンドポイント詳細情報');
-      expect(details).toContain('検出されたエンドポイントはありません。');
+      expect(content).toContain('注意: エンドポイント数が多いため、最初の50件のみ表示しています');
+      // 表示件数の確認
+      const endpointCount = (content.match(/### \`GET/g) || []).length;
+      expect(endpointCount).toBe(50);
     });
   });
-  
-  describe('generateErrorSection', () => {
-    it('エラーセクションを生成する', () => {
-      // Arrange
-      const resultWithErrors = {
-        ...mockResult,
-        errors: [
-          'ファイル /path/to/error1.ts の解析中にエラーが発生しました: TypeScript型エラー',
-          'ファイル /path/to/error2.ts の解析中にエラーが発生しました: 構文エラー'
-        ]
-      };
-      
+
+  describe('generateRtkSpecificInfo', () => {
+    it('RTK Query固有の情報を正しく生成する', () => {
       // Act
-      const errorSection = generator.generateErrorSection(resultWithErrors);
-      
+      const content = generator.generateDetailedEndpoints(mockResult);
+
       // Assert
-      expect(errorSection).toContain('## 解析エラー');
-      expect(errorSection).toContain('解析中に以下のエラーが発生しました:');
-      expect(errorSection).toContain('1. ファイル /path/to/error1.ts の解析中にエラーが発生しました: TypeScript型エラー');
-      expect(errorSection).toContain('2. ファイル /path/to/error2.ts の解析中にエラーが発生しました: 構文エラー');
+      expect(content).toContain('#### RTK Query固有情報');
+      expect(content).toContain('**タイプ:** クエリ');
+      expect(content).toContain('**ビルダー名:** getProduct');
+      expect(content).toContain('**API定義名:** productApi');
+      expect(content).toContain('**レスポンス変換:** あり');
+      expect(content).toContain('**baseQuery使用:** あり');
     });
-    
-    it('エラーが存在しない場合は空文字列を返す', () => {
+
+    it('RTK Query情報がない場合はセクションを生成しない', () => {
+      // Arrange
+      const noRtkResult = {
+        ...mockResult,
+        endpoints: [mockResult.endpoints[0]] // RTK Queryエンドポイントを除外
+      };
+
       // Act
-      const errorSection = generator.generateErrorSection(mockResult);
-      
+      const content = generator.generateDetailedEndpoints(noRtkResult);
+
       // Assert
-      expect(errorSection).toBe('');
+      expect(content).not.toContain('#### RTK Query固有情報');
+    });
+  });
+
+  describe('generateParameterInfo', () => {
+    it('パラメータ情報を正しく生成する', () => {
+      // Act
+      const content = generator.generateDetailedEndpoints(mockResult);
+
+      // Assert
+      expect(content).toContain('#### 使用パラメータ');
+      expect(content).toContain('| パラメータ名 | 種別 | 必須 | 使用箇所数 |');
+      expect(content).toContain('| page | クエリ | ✓ | 1 |');
+      expect(content).toContain('| id | パス | ✓ | 1 |');
+    });
+
+    it('パラメータがない場合はセクションを生成しない', () => {
+      // Arrange
+      const noParamsResult = {
+        ...mockResult,
+        endpoints: [{
+          ...mockResult.endpoints[0],
+          parametersUsed: []
+        }]
+      };
+
+      // Act
+      const content = generator.generateDetailedEndpoints(noParamsResult);
+
+      // Assert
+      expect(content).not.toMatch(/#### 使用パラメータ[\s\S]*\| パラメータ名/);
+    });
+  });
+
+  describe('generateUsageLocationInfo', () => {
+    it('使用箇所情報を正しく生成する', () => {
+      // Act
+      const content = generator.generateDetailedEndpoints(mockResult);
+
+      // Assert
+      expect(content).toContain('#### 使用箇所');
+      expect(content).toContain('file1.ts');
+      expect(content).toContain('行 10');
+      expect(content).toContain('ユーザー一覧取得');
+    });
+
+    it('使用箇所が多い場合は表示を制限する', () => {
+      // Arrange
+      const manyLocationsResult = {
+        ...mockResult,
+        endpoints: [{
+          ...mockResult.endpoints[0],
+          usageLocations: Array(10).fill(mockResult.endpoints[0].usageLocations[0])
+        }]
+      };
+
+      // Act
+      const content = generator.generateDetailedEndpoints(manyLocationsResult);
+
+      // Assert
+      expect(content).toContain('他');
+      // 表示件数の制限を確認
+      const locationCount = (content.match(/行 \d+/g) || []).length;
+      expect(locationCount).toBeLessThanOrEqual(3);
+    });
+  });
+
+  describe('generateErrorSection', () => {
+    it('エラーセクションを正しく生成する', () => {
+      // Act
+      const content = generator.generateErrorSection(mockResult);
+
+      // Assert
+      expect(content).toContain('## 解析中のエラー (2件)');
+      expect(content).toContain('Error 1: 解析エラー');
+      expect(content).toContain('Error 2: 型情報不足');
+      expect(content).toContain('これらのエラーは主に以下の理由で発生している可能性があります');
+    });
+
+    it('エラーが20件以上ある場合は表示を制限する', () => {
+      // Arrange
+      const manyErrorsResult = {
+        ...mockResult,
+        errors: Array(30).fill('Error: テストエラー')
+      };
+
+      // Act
+      const content = generator.generateErrorSection(manyErrorsResult);
+
+      // Assert
+      expect(content).toContain('他 10 件のエラー');
+      // 表示件数の制限を確認
+      const errorCount = (content.match(/Error/g) || []).length;
+      expect(errorCount).toBe(20);
+    });
+
+    it('エラーがない場合も適切に処理する', () => {
+      // Arrange
+      const noErrorsResult = {
+        ...mockResult,
+        errors: []
+      };
+
+      // Act
+      const content = generator.generateErrorSection(noErrorsResult);
+
+      // Assert
+      expect(content).toContain('## 解析中のエラー (0件)');
+      expect(content).not.toContain('他');
     });
   });
 });

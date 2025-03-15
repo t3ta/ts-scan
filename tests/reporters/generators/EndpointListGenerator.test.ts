@@ -7,46 +7,7 @@
  */
 
 import { EndpointListGenerator } from '../../../src/reporters/markdown/generators/EndpointListGenerator';
-import { AnalysisResult, EndpointInfo, HttpMethod, EndpointSource, ParameterType } from '../../../src/types';
-
-// モックユーティリティの統計関連関数
-jest.mock('../../../src/utils/statistics', () => ({
-  groupEndpointsByCategory: jest.fn().mockImplementation((endpoints: EndpointInfo[]) => {
-    // 簡易的なカテゴリ分類のモック実装
-    const categories: Record<string, EndpointInfo[]> = {
-      'ユーザー管理': [],
-      '商品管理': [],
-      '認証': []
-    };
-
-    endpoints.forEach((endpoint: EndpointInfo) => {
-      if (endpoint.path.includes('/users')) {
-        categories['ユーザー管理'].push(endpoint);
-      } else if (endpoint.path.includes('/products')) {
-        categories['商品管理'].push(endpoint);
-      } else if (endpoint.path.includes('/auth')) {
-        categories['認証'].push(endpoint);
-      }
-    });
-
-    return categories;
-  }),
-  calculateEndpointComplexity: jest.fn().mockImplementation((endpoint: EndpointInfo) => {
-    // エンドポイントの複雑性を計算するモック実装
-    let complexity = 5; // ベース複雑性
-
-    // 動的エンドポイントは複雑性が高い
-    if (endpoint.isDynamic) complexity += 5;
-
-    // パラメータ数で複雑性を増加
-    complexity += endpoint.parametersUsed.length * 3;
-
-    // 使用箇所数で複雑性を増加
-    complexity += Math.min(5, endpoint.usageLocations.length);
-
-    return complexity;
-  })
-}));
+import { AnalysisResult, HttpMethod, EndpointSource, ParameterType } from '../../../src/types';
 
 describe('EndpointListGenerator', () => {
   let generator: EndpointListGenerator;
@@ -78,247 +39,220 @@ describe('EndpointListGenerator', () => {
           method: 'GET' as HttpMethod,
           isDynamic: true,
           usageLocations: [
-            { filePath: '/path/to/file3.ts', lineNumber: 25, columnNumber: 12 }
+            { filePath: '/path/to/file3.ts', lineNumber: 20, columnNumber: 12 }
           ],
           parametersUsed: [
             {
               name: 'id',
               type: 'path' as ParameterType,
-              locations: [{ filePath: '/path/to/file3.ts', lineNumber: 25, columnNumber: 15 }]
+              required: true,
+              locations: [{ filePath: '/path/to/file3.ts', lineNumber: 20, columnNumber: 30 }]
             }
           ],
           responseHandling: [],
-          source: 'axios',
-          featureCategory: 'ユーザー管理',
-          apiVersion: 'v1'
-        },
-        {
-          path: '/api/users',
-          method: 'POST' as HttpMethod,
-          isDynamic: false,
-          usageLocations: [
-            { filePath: '/path/to/file4.ts', lineNumber: 30, columnNumber: 10 }
-          ],
-          parametersUsed: [
-            {
-              name: 'userData',
-              type: 'body' as ParameterType,
-              locations: [{ filePath: '/path/to/file4.ts', lineNumber: 30, columnNumber: 20 }]
-            }
-          ],
-          responseHandling: [],
-          source: 'axios',
+          source: 'axios' as EndpointSource,
           featureCategory: 'ユーザー管理',
           apiVersion: 'v1'
         },
         {
           path: '/api/products',
-          method: 'GET' as HttpMethod,
-          isDynamic: false,
-          usageLocations: [
-            { filePath: '/path/to/file5.ts', lineNumber: 40, columnNumber: 5 }
-          ],
-          parametersUsed: [],
-          responseHandling: [],
-          source: 'rtk-query' as EndpointSource,
-          featureCategory: '商品管理',
-          apiVersion: 'v1',
-          rtkQuerySpecific: {
-            isQuery: true,
-            isMutation: false,
-            transformResponseUsed: true,
-            baseQueryUsed: true
-          }
-        },
-        {
-          path: '/api/auth/login',
           method: 'POST' as HttpMethod,
           isDynamic: false,
           usageLocations: [
-            { filePath: '/path/to/file6.ts', lineNumber: 50, columnNumber: 8 }
+            { filePath: '/path/to/file4.ts', lineNumber: 25, columnNumber: 15 }
           ],
           parametersUsed: [
             {
-              name: 'username',
+              name: 'data',
               type: 'body' as ParameterType,
-              locations: [{ filePath: '/path/to/file6.ts', lineNumber: 50, columnNumber: 20 }]
-            },
-            {
-              name: 'password',
-              type: 'body' as ParameterType,
-              locations: [{ filePath: '/path/to/file6.ts', lineNumber: 50, columnNumber: 40 }]
+              required: true,
+              locations: [{ filePath: '/path/to/file4.ts', lineNumber: 25, columnNumber: 35 }]
             }
           ],
           responseHandling: [],
-          source: 'fetch' as EndpointSource,
-          featureCategory: '認証',
+          source: 'rtk-query' as EndpointSource,
+          featureCategory: '商品管理',
           apiVersion: 'v1'
         }
       ],
       statistics: {
-        totalEndpoints: 5,
-        methodDistribution: {
-          GET: 2,
-          POST: 2,
-          PUT: 0,
-          DELETE: 0,
-          PATCH: 0,
-          OPTIONS: 0,
-          HEAD: 0
-        } as Record<HttpMethod, number>,
+        totalEndpoints: 3,
+        methodDistribution: { GET: 2, POST: 1, PUT: 0, DELETE: 0, PATCH: 0, OPTIONS: 0, HEAD: 0 },
         sourceDistribution: {
           'axios': 2,
           'rtk-query': 1,
-          'fetch': 1,
+          'fetch': 0,
           'custom-client': 0,
           'default': 0,
           'v2-endpoint': 0
-        } as Record<EndpointSource, number>,
-        apiVersionDistribution: { 'v1': 4 },
-        featureCategoryDistribution: { 'ユーザー管理': 2, '商品管理': 1, '認証': 1 },
-        mostUsedEndpoints: [{ path: '/api/users', count: 3 }],
+        },
+        apiVersionDistribution: { 'v1': 3 },
+        featureCategoryDistribution: { 'ユーザー管理': 2, '商品管理': 1 },
+        mostUsedEndpoints: [],
         pathParameterUsage: { 'id': 1 },
         dynamicEndpoints: 1,
         rtkQueryUsage: {
           totalEndpoints: 1,
-          queries: 1,
-          mutations: 0,
-          transformResponseUsage: 1
+          queries: 0,
+          mutations: 1,
+          transformResponseUsage: 0
         }
       },
       analyzedAt: new Date('2023-01-01T00:00:00Z'),
       configuration: {
         targetDirectory: '/path/to/project'
       },
-      analyzedFiles: ['/path/to/file1.ts', '/path/to/file2.ts'],
+      analyzedFiles: ['/path/to/file1.ts', '/path/to/file2.ts', '/path/to/file3.ts', '/path/to/file4.ts'],
       errors: []
     };
   });
 
   describe('generateCategorizedEndpoints', () => {
-    it('解析結果からカテゴリ別エンドポイント一覧を正しく生成する', () => {
+    it('カテゴリ別のエンドポイント一覧を正しく生成する', () => {
       // Act
-      const categorizedList = generator.generateCategorizedEndpoints(mockResult);
+      const content = generator.generateCategorizedEndpoints(mockResult);
 
       // Assert
-      // マークダウン形式の確認
-      expect(categorizedList).toContain('## カテゴリ別エンドポイント一覧');
+      // セクションヘッダーの確認
+      expect(content).toContain('## カテゴリ別エンドポイント一覧');
 
-      // 各カテゴリセクションの確認
-      expect(categorizedList).toContain('### ユーザー管理');
-      expect(categorizedList).toContain('### 商品管理');
-      expect(categorizedList).toContain('### 認証');
+      // カテゴリの確認
+      expect(content).toContain('### ユーザー管理');
+      expect(content).toContain('### 商品管理');
 
-      // テーブル形式の確認
-      expect(categorizedList).toContain('| メソッド | エンドポイント | 使用箇所数 | 動的パラメータ | 検出元 |');
+      // テーブルヘッダーの確認
+      expect(content).toContain('| メソッド | エンドポイント | 使用箇所数 | 動的パラメータ | 検出元 |');
 
-      // コンテンツの確認
-      expect(categorizedList).toContain('| GET | `/api/users` |');
-      expect(categorizedList).toContain('| GET | `/api/users/:id` |');
-      expect(categorizedList).toContain('| POST | `/api/users` |');
-      expect(categorizedList).toContain('| GET | `/api/products` |');
-      expect(categorizedList).toContain('| POST | `/api/auth/login` |');
-
-      // 動的パラメータのチェック
-      expect(categorizedList).toContain('| GET | `/api/users/:id` | 1 | ✓ |');
+      // エンドポイント情報の確認
+      expect(content).toContain('| GET | `/api/users` | 2 | - | Axios |');
+      expect(content).toContain('| GET | `/api/users/:id` | 1 | ✓ | Axios |');
+      expect(content).toContain('| POST | `/api/products` | 1 | - | RTK Query |');
     });
 
-    it('複雑なエンドポイントがある場合は複雑性情報を表示する', () => {
-      // モックを拡張して複雑なエンドポイントを含める
-      const complexResult = {
+    it('複雑なエンドポイントをハイライトする', () => {
+      // Arrange
+      const complexEndpoint = {
+        path: '/api/complex',
+        method: 'POST' as HttpMethod,
+        isDynamic: true,
+        usageLocations: Array(10).fill({ filePath: 'file.ts', lineNumber: 1, columnNumber: 1 }),
+        parametersUsed: Array(5).fill({
+          name: 'param',
+          type: 'query' as ParameterType,
+          required: true,
+          locations: []
+        }),
+        responseHandling: [],
+        source: 'axios' as EndpointSource,
+        featureCategory: 'テスト',
+        apiVersion: 'v1'
+      };
+
+      const resultWithComplex = {
         ...mockResult,
-        endpoints: [
-          ...mockResult.endpoints,
-          {
-            path: '/api/users/:id/transactions/:transactionId',
-            method: 'GET' as HttpMethod,
-            isDynamic: true,
-            usageLocations: [
-              { filePath: '/path/to/file7.ts', lineNumber: 60, columnNumber: 5 },
-              { filePath: '/path/to/file8.ts', lineNumber: 70, columnNumber: 8 },
-              { filePath: '/path/to/file9.ts', lineNumber: 80, columnNumber: 12 }
-            ],
-            parametersUsed: [
-              {
-                name: 'id',
-                type: 'path' as ParameterType,
-                locations: [{ filePath: '/path/to/file7.ts', lineNumber: 60, columnNumber: 15 }]
-              },
-              {
-                name: 'transactionId',
-                type: 'path' as ParameterType,
-                locations: [{ filePath: '/path/to/file7.ts', lineNumber: 60, columnNumber: 30 }]
-              },
-              {
-                name: 'filter',
-                type: 'query' as ParameterType,
-                locations: [{ filePath: '/path/to/file7.ts', lineNumber: 60, columnNumber: 45 }]
-              },
-              {
-                name: 'sort',
-                type: 'query' as ParameterType,
-                locations: [{ filePath: '/path/to/file7.ts', lineNumber: 60, columnNumber: 55 }]
-              }
-            ],
-            responseHandling: [],
-            source: 'axios' as EndpointSource,
-            featureCategory: 'ユーザー管理',
-            apiVersion: 'v1'
-          }
-        ]
+        endpoints: [...mockResult.endpoints, complexEndpoint]
       };
 
       // Act
-      const categorizedList = generator.generateCategorizedEndpoints(complexResult);
+      const content = generator.generateCategorizedEndpoints(resultWithComplex);
 
       // Assert
-      expect(categorizedList).toContain('#### カテゴリ内の複雑なエンドポイント');
-      expect(categorizedList).toContain('| エンドポイント | 複雑性スコア | 使用箇所数 | パラメータ数 |');
-      expect(categorizedList).toContain('| `GET /api/users/:id/transactions/:transactionId` |');
+      expect(content).toContain('#### カテゴリ内の複雑なエンドポイント');
+      expect(content).toContain('| エンドポイント | 複雑性スコア | 使用箇所数 | パラメータ数 |');
+      expect(content).toContain('| `POST /api/complex`');
+    });
+
+    it('カテゴリがないエンドポイントも適切に処理する', () => {
+      // Arrange
+      const noCategoryEndpoint = {
+        ...mockResult.endpoints[0],
+        featureCategory: undefined
+      };
+
+      const resultWithNoCategory = {
+        ...mockResult,
+        endpoints: [noCategoryEndpoint]
+      };
+
+      // Act
+      const content = generator.generateCategorizedEndpoints(resultWithNoCategory);
+
+      // Assert
+      expect(content).toContain('### 未分類');
+      expect(content).toContain('| GET | `/api/users` |');
     });
   });
 
   describe('generateMethodBasedEndpoints', () => {
-    it('解析結果からHTTPメソッド別エンドポイント一覧を正しく生成する', () => {
+    it('メソッド別のエンドポイント一覧を正しく生成する', () => {
       // Act
-      const methodBasedList = generator.generateMethodBasedEndpoints(mockResult);
+      const content = generator.generateMethodBasedEndpoints(mockResult);
 
       // Assert
-      // マークダウン形式の確認
-      expect(methodBasedList).toContain('## HTTPメソッド別エンドポイント一覧');
+      // セクションヘッダーの確認
+      expect(content).toContain('## HTTPメソッド別エンドポイント一覧');
 
-      // 各メソッドセクションの確認
-      expect(methodBasedList).toContain('### GET エンドポイント (3)');
-      expect(methodBasedList).toContain('### POST エンドポイント (2)');
+      // メソッドセクションの確認
+      expect(content).toContain('### GET エンドポイント (2)');
+      expect(content).toContain('### POST エンドポイント (1)');
 
-      // 存在しないメソッドは表示されないことを確認
-      expect(methodBasedList).not.toContain('### PUT エンドポイント');
-      expect(methodBasedList).not.toContain('### DELETE エンドポイント');
+      // テーブルヘッダーの確認
+      expect(content).toContain('| エンドポイント | カテゴリ | 使用箇所数 | 動的パラメータ | APIバージョン |');
 
-      // テーブル形式の確認
-      expect(methodBasedList).toContain('| エンドポイント | カテゴリ | 使用箇所数 | 動的パラメータ | APIバージョン |');
-
-      // コンテンツの確認
-      expect(methodBasedList).toContain('| `/api/users` | ユーザー管理 | 2 | - | v1 |');
-      expect(methodBasedList).toContain('| `/api/users/:id` | ユーザー管理 | 1 | ✓ | v1 |');
-      expect(methodBasedList).toContain('| `/api/auth/login` | 認証 | 1 | - | v1 |');
+      // エンドポイント情報の確認
+      expect(content).toContain('| `/api/users` | ユーザー管理 | 2 | - | v1 |');
+      expect(content).toContain('| `/api/products` | 商品管理 | 1 | - | v1 |');
     });
 
-    it('APIバージョンが指定されていない場合はデフォルト表示にする', () => {
+    it('使用されていないメソッドのセクションは生成しない', () => {
+      // Act
+      const content = generator.generateMethodBasedEndpoints(mockResult);
+
+      // Assert
+      expect(content).not.toContain('### PUT エンドポイント');
+      expect(content).not.toContain('### DELETE エンドポイント');
+      expect(content).not.toContain('### PATCH エンドポイント');
+    });
+
+    it('エンドポイントをパスでソートして表示する', () => {
       // Arrange
-      const noVersionResult = {
+      const additionalEndpoint = {
+        ...mockResult.endpoints[0],
+        path: '/api/admin'
+      };
+
+      const resultWithAdditional = {
         ...mockResult,
-        endpoints: mockResult.endpoints.map(endpoint => ({
-          ...endpoint,
-          apiVersion: undefined
-        }))
+        endpoints: [...mockResult.endpoints, additionalEndpoint]
       };
 
       // Act
-      const methodBasedList = generator.generateMethodBasedEndpoints(noVersionResult);
+      const content = generator.generateMethodBasedEndpoints(resultWithAdditional);
 
       // Assert
-      expect(methodBasedList).toContain('| デフォルト |');
+      const getSection = content.split('### GET エンドポイント')[1].split('###')[0];
+      const adminIndex = getSection.indexOf('/api/admin');
+      const usersIndex = getSection.indexOf('/api/users');
+      expect(adminIndex).toBeLessThan(usersIndex);
+    });
+
+    it('APIバージョンが未指定の場合はデフォルトと表示する', () => {
+      // Arrange
+      const noVersionEndpoint = {
+        ...mockResult.endpoints[0],
+        apiVersion: undefined
+      };
+
+      const resultWithNoVersion = {
+        ...mockResult,
+        endpoints: [noVersionEndpoint]
+      };
+
+      // Act
+      const content = generator.generateMethodBasedEndpoints(resultWithNoVersion);
+
+      // Assert
+      expect(content).toContain('デフォルト');
     });
   });
 });

@@ -1,13 +1,13 @@
 /**
  * 統計情報ジェネレーターのテスト
- * 
+ *
  * @description
  * マークダウンレポーターの統計情報ジェネレーターコンポーネントを検証するテストスイート。
- * 統計情報のマークダウン表現生成ロジックを単体検証します。
+ * 詳細な統計情報セクションの生成ロジックを単体検証します。
  */
 
 import { StatisticsGenerator } from '../../../src/reporters/markdown/generators/StatisticsGenerator';
-import { AnalysisResult, EndpointInfo, HttpMethod, EndpointSource } from '../../../src/types';
+import { AnalysisResult, HttpMethod, EndpointSource } from '../../../src/types';
 
 describe('StatisticsGenerator', () => {
   let generator: StatisticsGenerator;
@@ -16,267 +16,237 @@ describe('StatisticsGenerator', () => {
   beforeEach(() => {
     // ジェネレーターインスタンスを作成
     generator = new StatisticsGenerator();
-    
+
     // モック解析結果データを作成
     mockResult = {
-      endpoints: [
-        // GETエンドポイント (axios)
-        {
-          path: '/api/users',
-          method: 'GET' as HttpMethod,
-          isDynamic: false,
-          usageLocations: [{ filePath: '/path/to/file.ts', lineNumber: 1, columnNumber: 1 }],
-          parametersUsed: [
-            {
-              name: 'limit',
-              type: 'query',
-              locations: [{ filePath: '/path/to/file.ts', lineNumber: 1, columnNumber: 1 }]
-            }
-          ],
-          responseHandling: [
-            {
-              type: 'typed',
-              typeName: 'User[]',
-              location: { filePath: '/path/to/file.ts', lineNumber: 1, columnNumber: 1 }
-            }
-          ],
-          source: 'axios',
-          apiVersion: 'v1',
-          featureCategory: 'user-management'
-        },
-        // POSTエンドポイント (axios)
-        {
-          path: '/api/users',
-          method: 'POST' as HttpMethod,
-          isDynamic: false,
-          usageLocations: [{ filePath: '/path/to/file.ts', lineNumber: 1, columnNumber: 1 }],
-          parametersUsed: [
-            {
-              name: 'userData',
-              type: 'body',
-              locations: [{ filePath: '/path/to/file.ts', lineNumber: 1, columnNumber: 1 }]
-            }
-          ],
-          responseHandling: [
-            {
-              type: 'direct',
-              location: { filePath: '/path/to/file.ts', lineNumber: 1, columnNumber: 1 }
-            }
-          ],
-          source: 'axios',
-          apiVersion: 'v1',
-          featureCategory: 'user-management'
-        },
-        // GETエンドポイント (rtk-query)
-        {
-          path: '/api/products',
-          method: 'GET' as HttpMethod,
-          isDynamic: false,
-          usageLocations: [{ filePath: '/path/to/file.ts', lineNumber: 1, columnNumber: 1 }],
-          parametersUsed: [],
-          responseHandling: [
-            {
-              type: 'transformation',
-              location: { filePath: '/path/to/file.ts', lineNumber: 1, columnNumber: 1 }
-            }
-          ],
-          source: 'rtk-query',
-          apiVersion: 'v2',
-          featureCategory: 'catalog',
-          rtkQuerySpecific: {
-            isQuery: true,
-            isMutation: false,
-            transformResponseUsed: true,
-            baseQueryUsed: true
-          }
-        },
-        // 動的パスパラメータを持つGETエンドポイント
-        {
-          path: '/api/users/:id',
-          method: 'GET' as HttpMethod,
-          isDynamic: true,
-          usageLocations: [{ filePath: '/path/to/file.ts', lineNumber: 1, columnNumber: 1 }],
-          parametersUsed: [
-            {
-              name: 'id',
-              type: 'path',
-              locations: [{ filePath: '/path/to/file.ts', lineNumber: 1, columnNumber: 1 }]
-            }
-          ],
-          responseHandling: [],
-          source: 'fetch',
-          apiVersion: 'v1',
-          featureCategory: 'user-management'
-        }
-      ],
+      endpoints: [],
       statistics: {
-        totalEndpoints: 4,
-        methodDistribution: { 
-          GET: 3, 
-          POST: 1,
-          PUT: 0,
+        totalEndpoints: 10,
+        methodDistribution: {
+          GET: 5,
+          POST: 3,
+          PUT: 2,
           DELETE: 0,
           PATCH: 0,
           OPTIONS: 0,
           HEAD: 0
         } as Record<HttpMethod, number>,
-        sourceDistribution: { 
-          'axios': 2, 
-          'rtk-query': 1,
-          'fetch': 1,
-          'custom-client': 0,
+        sourceDistribution: {
+          'axios': 4,
+          'rtk-query': 3,
+          'fetch': 2,
+          'custom-client': 1,
           'default': 0,
           'v2-endpoint': 0
         } as Record<EndpointSource, number>,
-        apiVersionDistribution: { 
-          'v1': 3, 
-          'v2': 1 
+        apiVersionDistribution: {
+          'v1': 7,
+          'v2': 3
         },
-        featureCategoryDistribution: { 
-          'user-management': 3, 
-          'catalog': 1 
+        featureCategoryDistribution: {
+          'ユーザー管理': 4,
+          '商品管理': 3,
+          '注文管理': 3
         },
-        mostUsedEndpoints: [
-          { path: '/api/users', count: 2 },
-          { path: '/api/products', count: 1 },
-          { path: '/api/users/:id', count: 1 }
-        ],
+        mostUsedEndpoints: [],
         pathParameterUsage: {
-          'id': 1
+          'id': 5,
+          'userId': 3,
+          'productId': 2
         },
-        dynamicEndpoints: 1,
+        dynamicEndpoints: 5,
         rtkQueryUsage: {
-          totalEndpoints: 1,
-          queries: 1,
-          mutations: 0,
-          transformResponseUsage: 1
+          totalEndpoints: 3,
+          queries: 2,
+          mutations: 1,
+          transformResponseUsage: 2
         }
       },
       analyzedAt: new Date('2023-01-01T00:00:00Z'),
       configuration: {
         targetDirectory: '/path/to/project'
       },
-      analyzedFiles: ['/path/to/file1.ts', '/path/to/file2.ts'],
+      analyzedFiles: [],
       errors: []
     };
   });
 
   describe('generateStatisticsSection', () => {
-    it('HTTPメソッド分布を含むテーブルを生成する', () => {
+    it('すべての統計情報セクションを正しく生成する', () => {
       // Act
-      const statistics = generator.generateStatisticsSection(mockResult);
-      
+      const content = generator.generateStatisticsSection(mockResult);
+
       // Assert
-      expect(statistics).toContain('### HTTPメソッド分布');
-      expect(statistics).toContain('| メソッド | エンドポイント数 | 割合 |');
-      expect(statistics).toContain('GET');
-      expect(statistics).toContain('3');
-      expect(statistics).toContain('75');
-      expect(statistics).toContain('POST');
-      expect(statistics).toContain('1');
-      expect(statistics).toContain('25');
+      expect(content).toContain('## 詳細統計情報');
+      expect(content).toContain('### HTTPメソッド分布');
+      expect(content).toContain('### 検出元分布');
+      expect(content).toContain('### APIバージョン分布');
+      expect(content).toContain('### 機能カテゴリ分布');
+      expect(content).toContain('### 最も使用されているパスパラメータ');
+      expect(content).toContain('### RTK Query統計');
     });
-    
-    it('検出元分布を含むテーブルを生成する', () => {
+  });
+
+  describe('generateHttpMethodDistribution', () => {
+    it('HTTPメソッド分布を正しく生成する', () => {
       // Act
-      const statistics = generator.generateStatisticsSection(mockResult);
-      
+      const content = generator.generateStatisticsSection(mockResult);
+
       // Assert
-      expect(statistics).toContain('### 検出元分布');
-      expect(statistics).toContain('| タイプ | エンドポイント数 | 割合 |');
-      expect(statistics).toContain('Axios');
-      expect(statistics).toContain('50');
-      expect(statistics).toContain('RTK Query');
-      expect(statistics).toContain('25');
-      expect(statistics).toContain('Fetch API');
-      expect(statistics).toContain('25');
+      expect(content).toContain('| GET | 5 | 50% |');
+      expect(content).toContain('| POST | 3 | 30% |');
+      expect(content).toContain('| PUT | 2 | 20% |');
+      // 使用されていないメソッドは表示されない
+      expect(content).not.toContain('| DELETE |');
+      expect(content).not.toContain('| PATCH |');
     });
-    
-    it('APIバージョン分布を含むテーブルを生成する', () => {
-      // Act
-      const statistics = generator.generateStatisticsSection(mockResult);
-      
-      // Assert
-      expect(statistics).toContain('### APIバージョン分布');
-      expect(statistics).toContain('| バージョン | エンドポイント数 | 割合 |');
-      expect(statistics).toContain('v1');
-      expect(statistics).toContain('75');
-      expect(statistics).toContain('v2');
-      expect(statistics).toContain('25');
-    });
-    
-    it('機能カテゴリ分布を含むテーブルを生成する', () => {
-      // Act
-      const statistics = generator.generateStatisticsSection(mockResult);
-      
-      // Assert
-      expect(statistics).toContain('### 機能カテゴリ分布');
-      expect(statistics).toContain('| カテゴリ | エンドポイント数 | 割合 |');
-      expect(statistics).toContain('user-management');
-      expect(statistics).toContain('75');
-      expect(statistics).toContain('catalog');
-      expect(statistics).toContain('25');
-    });
-    
-    // 実装に存在しないセクションのためテストをスキップ
-    it.skip('頻出エンドポイントリストを生成する', () => {
-      // Act
-      const statistics = generator.generateStatisticsSection(mockResult);
-      
-      // 現在の実装にはこのセクションが存在しないためスキップ
-    });
-    
-    it('RTK Query統計情報を含む場合、その詳細を表示する', () => {
-      // Act
-      const statistics = generator.generateStatisticsSection(mockResult);
-      
-      // Assert
-      expect(statistics).toContain('### RTK Query統計');
-      expect(statistics).toContain('**RTK Query使用エンドポイント:**');
-      expect(statistics).toContain('**Query操作:**');
-      expect(statistics).toContain('**Mutation操作:**');
-      expect(statistics).toContain('**レスポンス変換使用:**');
-    });
-    
-    it('動的エンドポイント情報を含む', () => {
-      // Act
-      const statistics = generator.generateStatisticsSection(mockResult);
-      
-      // Assert
-      expect(statistics).toContain('### 最も使用されているパスパラメータ');
-      expect(statistics).toContain('| パラメータ名 | 使用回数 |');
-      expect(statistics).toContain('id');
-    });
-    
-    it('統計情報が空の場合は適切なメッセージを表示する', () => {
+
+    it('使用されているメソッドのみを表示する', () => {
       // Arrange
-      const emptyResult = {
+      const resultWithLimitedMethods = {
         ...mockResult,
-        endpoints: [],
         statistics: {
-          totalEndpoints: 0,
+          ...mockResult.statistics,
           methodDistribution: {
-            GET: 0,
+            GET: 1,
             POST: 0,
             PUT: 0,
             DELETE: 0,
             PATCH: 0,
             OPTIONS: 0,
             HEAD: 0
-          } as Record<HttpMethod, number>,
-          sourceDistribution: {
-            'axios': 0,
-            'rtk-query': 0,
-            'fetch': 0,
-            'custom-client': 0,
-            'default': 0,
-            'v2-endpoint': 0
-          } as Record<EndpointSource, number>,
-          apiVersionDistribution: {},
-          featureCategoryDistribution: {},
-          mostUsedEndpoints: [],
-          pathParameterUsage: {},
-          dynamicEndpoints: 0,
+          }
+        }
+      };
+
+      // Act
+      const content = generator.generateStatisticsSection(resultWithLimitedMethods);
+
+      // Assert
+      expect(content).toContain('| GET | 1 | 100% |');
+      expect(content).not.toContain('| POST |');
+    });
+  });
+
+  describe('generateSourceDistribution', () => {
+    it('検出元分布を正しく生成する', () => {
+      // Act
+      const content = generator.generateStatisticsSection(mockResult);
+
+      // Assert
+      expect(content).toContain('| Axios | 4 | 40% |');
+      expect(content).toContain('| RTK Query | 3 | 30% |');
+      expect(content).toContain('| Fetch API | 2 | 20% |');
+      expect(content).toContain('| カスタムクライアント | 1 | 10% |');
+    });
+  });
+
+  describe('generateApiVersionDistribution', () => {
+    it('APIバージョン分布を正しく生成する', () => {
+      // Act
+      const content = generator.generateStatisticsSection(mockResult);
+
+      // Assert
+      expect(content).toContain('| v1 | 7 | 70% |');
+      expect(content).toContain('| v2 | 3 | 30% |');
+    });
+  });
+
+  describe('generateFeatureCategoryDistribution', () => {
+    it('機能カテゴリ分布を正しく生成する', () => {
+      // Act
+      const content = generator.generateStatisticsSection(mockResult);
+
+      // Assert
+      expect(content).toContain('| ユーザー管理 | 4 | 40% |');
+      expect(content).toContain('| 商品管理 | 3 | 30% |');
+      expect(content).toContain('| 注文管理 | 3 | 30% |');
+    });
+
+    it('カテゴリがない場合はセクションを生成しない', () => {
+      // Arrange
+      const resultWithNoCategories = {
+        ...mockResult,
+        statistics: {
+          ...mockResult.statistics,
+          featureCategoryDistribution: {}
+        }
+      };
+
+      // Act
+      const content = generator.generateStatisticsSection(resultWithNoCategories);
+
+      // Assert
+      expect(content).not.toContain('### 機能カテゴリ分布');
+    });
+  });
+
+  describe('generatePathParameterUsage', () => {
+    it('パスパラメータ使用状況を正しく生成する', () => {
+      // Act
+      const content = generator.generateStatisticsSection(mockResult);
+
+      // Assert
+      expect(content).toContain('| id | 5 |');
+      expect(content).toContain('| userId | 3 |');
+      expect(content).toContain('| productId | 2 |');
+    });
+
+    it('パスパラメータがない場合はセクションを生成しない', () => {
+      // Arrange
+      const resultWithNoParams = {
+        ...mockResult,
+        statistics: {
+          ...mockResult.statistics,
+          pathParameterUsage: {}
+        }
+      };
+
+      // Act
+      const content = generator.generateStatisticsSection(resultWithNoParams);
+
+      // Assert
+      expect(content).not.toContain('### 最も使用されているパスパラメータ');
+    });
+
+    it('パスパラメータが10個以上ある場合は上位10件のみ表示する', () => {
+      // Arrange
+      const manyParams = Array.from({ length: 15 }, (_, i) => [`param${i + 1}`, 1]);
+      const resultWithManyParams = {
+        ...mockResult,
+        statistics: {
+          ...mockResult.statistics,
+          pathParameterUsage: Object.fromEntries(manyParams)
+        }
+      };
+
+      // Act
+      const content = generator.generateStatisticsSection(resultWithManyParams);
+
+      // Assert
+      const paramRows = content.match(/\| param\d+ \| 1 \|/g);
+      expect(paramRows?.length).toBe(10);
+    });
+  });
+
+  describe('generateRtkQueryStatistics', () => {
+    it('RTK Query統計情報を正しく生成する', () => {
+      // Act
+      const content = generator.generateStatisticsSection(mockResult);
+
+      // Assert
+      expect(content).toContain('RTK Query使用エンドポイント: 3 (30%)');
+      expect(content).toContain('Query操作: 2 (67% of RTK)');
+      expect(content).toContain('Mutation操作: 1 (33% of RTK)');
+      expect(content).toContain('レスポンス変換使用: 2 (67% of RTK)');
+    });
+
+    it('RTK Queryエンドポイントがない場合は簡略化したメッセージを表示する', () => {
+      // Arrange
+      const resultWithNoRtk = {
+        ...mockResult,
+        statistics: {
+          ...mockResult.statistics,
           rtkQueryUsage: {
             totalEndpoints: 0,
             queries: 0,
@@ -285,50 +255,12 @@ describe('StatisticsGenerator', () => {
           }
         }
       };
-      
+
       // Act
-      const statistics = generator.generateStatisticsSection(emptyResult);
-      
+      const content = generator.generateStatisticsSection(resultWithNoRtk);
+
       // Assert
-      expect(statistics).toContain('## 詳細統計情報');
-      // 空の結果の場合でも基本的なセクションは表示される
-      expect(statistics).toContain('### HTTPメソッド分布');
-    });
-    
-    it('割合が正しく計算されることを確認する', () => {
-      // Arrange
-      const customResult = {
-        ...mockResult,
-        statistics: {
-          ...mockResult.statistics,
-          totalEndpoints: 10,
-          methodDistribution: { 
-            GET: 5, 
-            POST: 3,
-            PUT: 2,
-            DELETE: 0,
-            PATCH: 0,
-            OPTIONS: 0,
-            HEAD: 0
-          } as Record<HttpMethod, number>
-        }
-      };
-      
-      // Act
-      const statistics = generator.generateStatisticsSection(customResult);
-      
-      // Assert - パーセンテージの正確な値よりも、各メソッドと対応する割合が計算されて表示されていることを確認
-      expect(statistics).toContain('GET');
-      expect(statistics).toContain('5');
-      expect(statistics).toContain('50');
-      
-      expect(statistics).toContain('POST');
-      expect(statistics).toContain('3');
-      expect(statistics).toContain('30');
-      
-      expect(statistics).toContain('PUT');
-      expect(statistics).toContain('2');
-      expect(statistics).toContain('20');
+      expect(content).toContain('RTK Queryを使用したエンドポイントは検出されませんでした。');
     });
   });
 });
