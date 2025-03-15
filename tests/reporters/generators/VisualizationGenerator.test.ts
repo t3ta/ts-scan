@@ -1,6 +1,6 @@
 /**
  * 可視化ジェネレーターのテスト
- * 
+ *
  * @description
  * マークダウンレポーターの可視化ジェネレーターコンポーネントを検証するテストスイート。
  * Mermaid.jsを利用したグラフ生成ロジックを単体検証します。
@@ -22,10 +22,10 @@ jest.mock('../../../src/utils/statistics', () => ({
 
 // グラフ生成関数のモック化
 jest.mock('../../../src/utils/statistics/graphs', () => ({
-  generateMermaidPieChart: jest.fn().mockImplementation((data, title) => 
+  generateMermaidPieChart: jest.fn().mockImplementation((data: Array<{ label: string; value: number }>, title: string) =>
     `\`\`\`mermaid\npie title ${title}\n${data.map(d => `    "${d.label}" : ${d.value}`).join('\n')}\n\`\`\`\n`
   ),
-  generateMermaidBarChart: jest.fn().mockImplementation((data, title, xLabel, yLabel) => 
+  generateMermaidBarChart: jest.fn().mockImplementation((data: Array<{ label: string; value: number }>, title: string, xLabel: string, yLabel: string) =>
     `\`\`\`mermaid\nbar title ${title}\n    x-axis [${xLabel}]\n    y-axis [${yLabel}]\n${data.map(d => `    "${d.label}" : ${d.value}`).join('\n')}\n\`\`\`\n`
   )
 }));
@@ -37,7 +37,7 @@ describe('VisualizationGenerator', () => {
   beforeEach(() => {
     // ジェネレーターインスタンスを作成
     generator = new VisualizationGenerator();
-    
+
     // モック解析結果データを作成
     mockResult = {
       endpoints: [
@@ -86,8 +86,8 @@ describe('VisualizationGenerator', () => {
       ],
       statistics: {
         totalEndpoints: 4,
-        methodDistribution: { 
-          GET: 2, 
+        methodDistribution: {
+          GET: 2,
           POST: 2,
           PUT: 0,
           DELETE: 0,
@@ -128,21 +128,21 @@ describe('VisualizationGenerator', () => {
     it('解析結果から正しい可視化セクションを生成する', () => {
       // Act
       const visualization = generator.generateVisualizationSection(mockResult);
-      
+
       // Assert
       // マークダウン形式の確認
       expect(visualization).toContain('## エンドポイント分析ビジュアライゼーション');
-      
+
       // 各チャートセクションの確認
       expect(visualization).toContain('### HTTPメソッド分布');
       expect(visualization).toContain('### API実装パターン分布');
       expect(visualization).toContain('### APIバージョン分布');
       expect(visualization).toContain('### エンドポイントパス構造');
       expect(visualization).toContain('### 機能カテゴリ分布');
-      
+
       // Mermaidブロックの存在確認
       expect(visualization).toContain('```mermaid');
-      
+
       // データの内容確認
       expect(visualization).toContain('"GET" : 2');
       expect(visualization).toContain('"POST" : 2');
@@ -152,7 +152,7 @@ describe('VisualizationGenerator', () => {
       expect(visualization).toContain('"v1" : 3');
       expect(visualization).toContain('"v2" : 1');
     });
-    
+
     it('APIバージョンが1つしかない場合はAPIバージョン分布グラフを生成しない', () => {
       // Arrange
       const singleVersionResult = {
@@ -162,14 +162,14 @@ describe('VisualizationGenerator', () => {
           apiVersionDistribution: { 'v1': 4 }
         }
       };
-      
+
       // Act
       const visualization = generator.generateVisualizationSection(singleVersionResult);
-      
+
       // Assert
       expect(visualization).not.toContain('### APIバージョン分布');
     });
-    
+
     it('機能カテゴリが存在しない場合は機能カテゴリ分布グラフを生成しない', () => {
       // Arrange
       const noCategoryResult = {
@@ -179,14 +179,14 @@ describe('VisualizationGenerator', () => {
           featureCategoryDistribution: {}
         }
       };
-      
+
       // Act
       const visualization = generator.generateVisualizationSection(noCategoryResult);
-      
+
       // Assert
       expect(visualization).not.toContain('### 機能カテゴリ分布');
     });
-    
+
     it('機能カテゴリが「未分類」のみの場合は機能カテゴリ分布グラフを生成しない', () => {
       // Arrange
       const onlyUncategorizedResult = {
@@ -196,10 +196,10 @@ describe('VisualizationGenerator', () => {
           featureCategoryDistribution: { '未分類': 4 }
         }
       };
-      
+
       // Act
       const visualization = generator.generateVisualizationSection(onlyUncategorizedResult);
-      
+
       // Assert
       expect(visualization).not.toContain('### 機能カテゴリ分布');
     });

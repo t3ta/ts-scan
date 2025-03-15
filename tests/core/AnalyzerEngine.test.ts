@@ -1,6 +1,6 @@
 /**
  * AnalyzerEngine クラスのユニットテスト
- * 
+ *
  * エンドポイント解析エンジンの各機能を検証します。
  * プロジェクト初期化、ファイル解析、戦略実行などの機能をテストします。
  */
@@ -9,10 +9,34 @@ import { mock, instance, when, anything } from 'ts-mockito';
 import { AnalyzerEngine } from '../../src/core/AnalyzerEngine';
 import { ServiceLocator, ServiceIds } from '../../src/core/ServiceLocator';
 import { StrategyRegistry } from '../../src/core/StrategyRegistry';
+
+// ts-morphのモック
+jest.mock('ts-morph', () => {
+  const mockSourceFile = {
+    getFilePath: jest.fn().mockReturnValue('/test/project/src/example.ts')
+  };
+
+  const mockTypeChecker = {
+    // 必要に応じてTypeCheckerのメソッドを追加
+  };
+
+  const mockProject = {
+    getTypeChecker: jest.fn().mockReturnValue(mockTypeChecker),
+    getSourceFiles: jest.fn().mockReturnValue([mockSourceFile]),
+    addSourceFilesAtPaths: jest.fn().mockReturnValue([mockSourceFile])
+  };
+
+  return {
+    Project: jest.fn().mockImplementation(() => mockProject),
+    SourceFile: jest.fn().mockImplementation(() => mockSourceFile),
+    TypeChecker: jest.fn().mockImplementation(() => mockTypeChecker)
+  };
+});
+
 import { Project, SourceFile, TypeChecker } from 'ts-morph';
-import { 
-  AnalysisConfiguration, 
-  EndpointInfo, 
+import {
+  AnalysisConfiguration,
+  EndpointInfo,
   EndpointDetectionStrategy
 } from '../../src/types';
 // 将来の拡張用にインポートしておく
@@ -117,60 +141,44 @@ describe('AnalyzerEngine', () => {
   let mockTypeChecker: TypeChecker;
   let mockSourceFile: SourceFile;
   let mockProject: Project;
-  
+
   // 各テスト前の共通セットアップ
   beforeEach(() => {
     // ServiceLocatorのリセット
     serviceLocator = ServiceLocator.getInstance();
     serviceLocator.clear();
-    
+
     // モックオブジェクトの作成
     mockConfiguration = mock<AnalysisConfiguration>();
-    mockTypeChecker = mock<TypeChecker>();
-    mockSourceFile = mock<SourceFile>();
-    mockProject = mock<Project>();
-    
+
     // モック設定
     when(mockConfiguration.targetDirectory).thenReturn('/test/project');
     when(mockConfiguration.filePatterns).thenReturn(['**/*.ts', '**/*.tsx']);
     when(mockConfiguration.ignorePatterns).thenReturn(['**/node_modules/**']);
-    
-    // SourceFileのモック設定
-    // ts-morphのFilePathの扱いが特殊なためダミー扱いする
-    // 実际のテストではもっと適切な処理が必要
-    when(mockSourceFile.getFilePath() as any).thenReturn('/test/project/src/example.ts');
-    
-    // Projectのモック設定
-    when(mockProject.getTypeChecker()).thenReturn(instance(mockTypeChecker));
-    when(mockProject.getSourceFiles()).thenReturn([instance(mockSourceFile)]);
-    when(mockProject.addSourceFilesAtPaths(anything())).thenReturn([instance(mockSourceFile)]);
-    
-    // Projectコンストラクタのモック
-    (Project as jest.Mock).mockImplementation(() => instance(mockProject));
-    
+
     // モックリセット
     jest.clearAllMocks();
   });
-  
+
   describe('初期化', () => {
     it('サービスロケータを適切に初期化すること', () => {
       // Arrange
       const engine = new AnalyzerEngine(instance(mockConfiguration), serviceLocator);
-      
+
       // Assert
       expect(serviceLocator.has(ServiceIds.TYPE_CHECKER)).toBe(true);
       expect(engine.getServiceLocator()).toBe(serviceLocator);
     });
-    
+
     it('戦略レジストリを適切に初期化すること', () => {
       // Arrange
       const engine = new AnalyzerEngine(instance(mockConfiguration), serviceLocator);
-      
+
       // Assert
       expect(engine.getStrategyRegistry()).toBeInstanceOf(StrategyRegistry);
     });
   });
-  
+
   describe('analyze', () => {
     it('ソースファイルを追加して戦略を実行すること', async () => {
       // Arrange
@@ -178,66 +186,66 @@ describe('AnalyzerEngine', () => {
         createMockEndpointInfo({ path: '/api/test1' }),
         createMockEndpointInfo({ path: '/api/test2' })
       ]));
-      
+
       const engine = new AnalyzerEngine(instance(mockConfiguration), serviceLocator);
       const registry = engine.getStrategyRegistry();
-      
+
       registry.registerStrategy(mockStrategy);
-      
+
       // Act
       const result = await engine.analyze();
-      
+
       // Assert
       expect(result.endpoints.length).toBe(2);
       expect(result.endpoints[0].path).toBe('/api/test1');
       expect(result.endpoints[1].path).toBe('/api/test2');
       expect(result.statistics.totalEndpoints).toBe(2);
     });
-    
+
     it('戦略がエラーを投げても処理が続行されること (failFast=false)', async () => {
       // Arrange
       const successStrategy = createMockStrategy('success-strategy', 10, jest.fn().mockReturnValue([
         createMockEndpointInfo()
       ]));
-      
+
       const errorStrategy = createMockStrategy('error-strategy', 20, jest.fn().mockImplementation(() => {
         throw new Error('テスト用エラー');
       }));
-      
+
       when(mockConfiguration.failFast).thenReturn(false);
-      
+
       const engine = new AnalyzerEngine(instance(mockConfiguration), serviceLocator);
       const registry = engine.getStrategyRegistry();
-      
+
       registry.registerStrategy(successStrategy);
       registry.registerStrategy(errorStrategy);
-      
+
       // Act
       const result = await engine.analyze();
-      
+
       // Assert
       expect(result.endpoints.length).toBe(1);
       expect(result.errors.length).toBe(1);
       expect(result.errors[0]).toContain('テスト用エラー');
     });
-    
+
     it('failFast=trueの場合、戦略がエラーを投げると中断されること', async () => {
       // Arrange
       const errorStrategy = createMockStrategy('error-strategy', 10, jest.fn().mockImplementation(() => {
         throw new Error('テスト用エラー');
       }));
-      
+
       when(mockConfiguration.failFast).thenReturn(true);
-      
+
       const engine = new AnalyzerEngine(instance(mockConfiguration), serviceLocator);
       const registry = engine.getStrategyRegistry();
-      
+
       registry.registerStrategy(errorStrategy);
-      
+
       // Act & Assert
       await expect(engine.analyze()).rejects.toThrow('フェイルファストモードでエラーが発生しました');
     });
   });
-  
+
   // 追加のテストケース...
 });
