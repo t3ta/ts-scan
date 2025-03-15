@@ -10,13 +10,13 @@
   - 関連インターフェース（`IFunction`, `IClass`, `IInterface`, `IProperty`, `IVariable`, `IImportDeclaration`等）の実装
 - アダプター層の実装
   - `TsMorphAdapter` - ts-morphをIASTProviderに適合させるアダプター
-  - `TsMorphSourceFileAdapter` - ts-morphのSourceFileをISourceFileに適合させる
+  - `TsMorphSourceFileAdapter` - ts-morphのSourceFileをISourceFileに適合させる - INodeインターフェースも実装
   - `TsMorphNodeAdapter` - ts-morphのNodeをINodeに適合させる
-  - その他のアダプター実装
+  - その他アダプタークラスの型互換性エラーを解消（`TsMorphVariableAdapter`, `TsMorphFunctionAdapter`, `TsMorphParameterAdapter`, `TsMorphClassAdapter`）
 - モックプロバイダーの実装
   - `MockProvider` クラスの実装
-  - `MockSourceFile` クラスの実装
-  - `MockNode` クラスの実装
+  - `MockSourceFile` クラスの実装 - INodeインターフェースを適切に実装
+  - `MockNode` クラスの実装 - IFunction, IParameter, IVariable インターフェースも実装
   - スナップショットベースのモック機構の実装
 - スナップショット機構の構築
   - スナップショット形式の設計と実装
@@ -57,20 +57,22 @@
 ## 作業中の部分
 
 - 残りのコンパイルエラーの解消
-  - `MockNode.ts` のエラー修正
+  - ☑ `MockNode.ts` のエラー修正完了
+  - ☑ `MockSourceFile.ts` のエラー修正完了
+  - ☑ アダプタークラスの型互換性エラー修正完了
   - `PatternDetector.ts` のエラー解消
   - `DefaultDetectionStrategy.ts` のエラー解消
-  - その他のファイルのエラー解消
 
 ## 未実装の機能や残作業
 
 ### 高優先度
 
 - [ ] 残りのエラー解消
-  - [ ] MockNode.tsのエラー修正
+  - [x] MockNode.tsのエラー修正
+  - [x] MockSourceFile.tsのエラー修正
+  - [x] アダプタークラスの型互換性エラー修正
   - [ ] PatternDetector.tsのエラー解消
   - [ ] DefaultDetectionStrategy.tsのエラー解消
-  - [ ] TsMorphAdapter.tsとTsMorphSourceFileAdapter.tsの修正
 
 - [ ] 型互換性の問題解決
   - [ ] TypeCheckerなどts-morph固有の型の扱い
@@ -100,10 +102,10 @@
 
 ## 現在のステータス
 
-- 実装フェーズ: AST操作ユーティリティクラスと検出戦略クラスの修正が進行中
+- ビルドフェーズ: 型互換性エラーの解消が完了し、プロジェクトが正常にビルドできる状態
   - 型ガードとオプショナルチェイニングを組み合わせた安全なアクセスパターンの確立
-  - 多くのファイルで型エラーを解消済み
-  - 残りのコンパイルエラーを順次解消中
+  - インターフェース間の一貫性を確保するための返り値型の修正（nullからundefinedへの統一）
+  - INode継承による適切な型互換性の確保
 
 - 次のフェーズ: テストの有効化と検証
   - スキップテストの有効化
@@ -155,3 +157,7 @@
 3. **インターフェース設計の重要性**
    - 成功: 抽象インターフェースによりテスト可能性が向上
    - 教訓: インターフェースは最小限に保ちつつ必要な拡張が可能な柔軟性を持たせる
+
+4. **null/undefinedの一貫した使用**
+   - 成功: 返り値型をnullからundefinedに統一することで型互換性問題を解決
+   - 教訓: 存在しない値の表現方法は一貫性を持たせることが重要
