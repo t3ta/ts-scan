@@ -5,7 +5,6 @@
  * Command/Visitorパターンに基づき、特定の条件に合致するノードを検出し処理します。
  */
 
-import { TypeChecker } from 'ts-morph';
 import { INode, SyntaxKind } from '../../core/ast/interfaces/INode';
 import { ISourceFile } from '../../core/ast/interfaces/ISourceFile';
 import { EndpointInfo, DetectionContext, EndpointPatternDetector } from '../../types';
@@ -311,7 +310,7 @@ export abstract class BasePatternDetector implements EndpointPatternDetector {
    * @param typeChecker タイプチェッカー
    * @returns 型情報文字列、取得失敗時は'unknown'
    */
-  protected safeGetTypeString(node: INode, typeChecker: TypeChecker): string {
+  protected safeGetTypeString(node: INode, typeChecker: any): string {
     try {
       // INodeをts-morphのNodeに変換する必要がある
       // ts-morphの型結合を保つための暇曲な処理

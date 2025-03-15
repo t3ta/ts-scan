@@ -5,8 +5,7 @@
  * フォールバックとして機能し、可能な限り多くのエンドポイントを検出することを目的としています。
  */
 
-import { SourceFile } from 'ts-morph';
-import { INode, NodeKind, SyntaxKind } from '../core/ast/interfaces/INode';
+import { INode, SyntaxKind } from '../core/ast/interfaces/INode';
 import { ISourceFile } from '../core/ast/interfaces/ISourceFile';
 import { BaseDetectionStrategy } from './common/BaseDetectionStrategy';
 import { BasePatternDetector } from './common/PatternDetector';
