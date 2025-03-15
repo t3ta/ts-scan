@@ -23,6 +23,36 @@ import { ServiceIds } from '../core/ServiceLocator';
 import { logger } from '../utils/Logger';
 
 /**
+ * INodeインターフェースを持つオブジェクトかどうかを判別する型ガード
+ * @param node 検査対象ノード
+ * @returns INodeインターフェースを持つオブジェクトならtrue
+ */
+function isINode(node: any): node is INode {
+  return node && 'isKind' in node && typeof node.isKind === 'function';
+}
+
+/**
+ * プロパティが存在し、指定された型であるかを確認する型ガード
+ * @param obj 対象オブジェクト
+ * @param prop プロパティ名
+ * @param typePredicate 型チェック関数
+ * @returns 条件を満たす場合true
+ */
+function hasPropertyOfType<T>(obj: any, prop: string, typePredicate: (val: any) => val is T): obj is { [key in typeof prop]: T } {
+  return prop in obj && typePredicate(obj[prop]);
+}
+
+/**
+ * 指定されたメソッドがオブジェクトに存在し、関数であるかを確認する型ガード
+ * @param obj 対象オブジェクト
+ * @param methodName メソッド名
+ * @returns メソッドが存在する場合true
+ */
+function hasMethod(obj: any, methodName: string): boolean {
+  return obj && methodName in obj && typeof obj[methodName] === 'function';
+}
+
+/**
  * 文字列リテラル検出器
  * URLパターンを含む文字列リテラルを検出します
  */
@@ -77,7 +107,8 @@ class StringLiteralUrlDetector extends BasePatternDetector {
       // 推測困難なので変更なし
     } else if (grandParent && grandParent.isKind(SyntaxKind.CallExpression)) {
       // 関数呼び出しの引数としての文字列の場合
-      const funcExpr = grandParent.getExpression ? grandParent.getExpression() : null;
+      const hasExpression = hasMethod(grandParent, 'getExpression');
+      const funcExpr = hasExpression && typeof grandParent.getExpression === 'function' ? grandParent.getExpression() : null;
       if (!funcExpr) return [];
       const funcName = funcExpr.getText().toLowerCase();
 
@@ -211,7 +242,8 @@ class TemplateLiteralUrlDetector extends BasePatternDetector {
 
     if (grandParent && grandParent.isKind(SyntaxKind.CallExpression)) {
       // 関数呼び出しの引数としての場合
-      const funcExpr = grandParent.getExpression ? grandParent.getExpression() : null;
+      const hasExpression = hasMethod(grandParent, 'getExpression');
+      const funcExpr = hasExpression && typeof grandParent.getExpression === 'function' ? grandParent.getExpression() : null;
       if (!funcExpr) return [];
       const funcName = funcExpr.getText().toLowerCase();
 
@@ -305,7 +337,8 @@ class TemplateLiteralUrlDetector extends BasePatternDetector {
     let result = templateHead.getText().replace(/^`/, '');
 
     for (const span of templateSpans) {
-      const expr = span.getExpression ? span.getExpression() : null;
+      const hasExpression = hasMethod(span, 'getExpression');
+      const expr = hasExpression && typeof span.getExpression === 'function' ? span.getExpression() : null;
       const middleNodes = span.findDescendants(n => n.isKind(SyntaxKind.TemplateMiddle), true);
       const tailNodes = span.findDescendants(n => n.isKind(SyntaxKind.TemplateTail), true);
       
@@ -459,11 +492,9 @@ class ObjectLiteralUrlDetector extends BasePatternDetector {
 
     // paramsプロパティからクエリパラメータを抽出
     const paramsProp = NodeExtractorsExtended.extractPropertyValue(node, 'params');
-    if (paramsProp && 'isKind' in paramsProp && typeof paramsProp.isKind === 'function') {
-      // 型ガードが通過したので、キャストして安全に使用
-      const typedNode = paramsProp as INode;
-      if (typedNode.isKind(SyntaxKind.ObjectLiteralExpression)) {
-        const paramProps = NodeExtractorsExtended.extractObjectProperties(typedNode);
+    if (paramsProp && isINode(paramsProp)) {
+      if (paramsProp.isKind(SyntaxKind.ObjectLiteralExpression)) {
+        const paramProps = NodeExtractorsExtended.extractObjectProperties(paramsProp);
 
         for (const prop of paramProps) {
           params.push({
@@ -479,11 +510,9 @@ class ObjectLiteralUrlDetector extends BasePatternDetector {
     const dataProp = NodeExtractorsExtended.extractPropertyValue(node, 'data');
     const bodyProp = NodeExtractorsExtended.extractPropertyValue(node, 'body');
 
-    if (dataProp && 'isKind' in dataProp && typeof dataProp.isKind === 'function') {
-      // 型ガードが通過したので、キャストして安全に使用
-      const typedNode = dataProp as INode;
-      if (typedNode.isKind(SyntaxKind.ObjectLiteralExpression)) {
-        const dataProps = NodeExtractorsExtended.extractObjectProperties(typedNode);
+    if (dataProp && isINode(dataProp)) {
+      if (dataProp.isKind(SyntaxKind.ObjectLiteralExpression)) {
+        const dataProps = NodeExtractorsExtended.extractObjectProperties(dataProp);
 
         for (const prop of dataProps) {
           params.push({
@@ -493,11 +522,9 @@ class ObjectLiteralUrlDetector extends BasePatternDetector {
           });
         }
       }
-    } else if (bodyProp && 'isKind' in bodyProp && typeof bodyProp.isKind === 'function') {
-      // 型ガードが通過したので、キャストして安全に使用
-      const typedNode = bodyProp as INode;
-      if (typedNode.isKind(SyntaxKind.ObjectLiteralExpression)) {
-        const bodyProps = NodeExtractorsExtended.extractObjectProperties(typedNode);
+    } else if (bodyProp && isINode(bodyProp)) {
+      if (bodyProp.isKind(SyntaxKind.ObjectLiteralExpression)) {
+        const bodyProps = NodeExtractorsExtended.extractObjectProperties(bodyProp);
   
         for (const prop of bodyProps) {
           params.push({
@@ -511,11 +538,9 @@ class ObjectLiteralUrlDetector extends BasePatternDetector {
 
     // headersプロパティからヘッダーパラメータを抽出
     const headersProp = NodeExtractorsExtended.extractPropertyValue(node, 'headers');
-    if (headersProp && 'isKind' in headersProp && typeof headersProp.isKind === 'function') {
-      // 型ガードが通過したので、キャストして安全に使用
-      const typedNode = headersProp as INode;
-      if (typedNode.isKind(SyntaxKind.ObjectLiteralExpression)) {
-        const headerProps = NodeExtractorsExtended.extractObjectProperties(typedNode);
+    if (headersProp && isINode(headersProp)) {
+      if (headersProp.isKind(SyntaxKind.ObjectLiteralExpression)) {
+        const headerProps = NodeExtractorsExtended.extractObjectProperties(headersProp);
 
         for (const prop of headerProps) {
           params.push({

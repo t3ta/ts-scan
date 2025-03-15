@@ -21,6 +21,15 @@ export abstract class BasePatternDetector implements EndpointPatternDetector {
   abstract readonly patternName: string;
   
   /**
+   * INodeインターフェースを持つオブジェクトかどうかを判別する型ガード
+   * @param node 検査対象ノード
+   * @returns INodeインターフェースを持つオブジェクトならtrue
+   */
+  private static isINode(node: any): node is INode {
+    return node && 'isKind' in node && typeof node.isKind === 'function';
+  }
+  
+  /**
    * 特定のノードがこのパターンに一致するかを判定
    * @param node 対象ノード
    * @returns パターン一致の場合true
@@ -313,10 +322,12 @@ export abstract class BasePatternDetector implements EndpointPatternDetector {
   protected safeGetTypeString(node: INode, typeChecker: any): string {
     try {
       // INodeをts-morphのNodeに変換する必要がある
-      // ts-morphの型結合を保つための暇曲な処理
       const internalNode = node.getInternalNode();
       if (internalNode && 'getType' in internalNode && typeof internalNode.getType === 'function') {
-        return internalNode.getType().getText();
+        const type = internalNode.getType();
+        if (type && typeof type.getText === 'function') {
+          return type.getText();
+        }
       }
       return 'unknown';
     } catch (e) {
@@ -339,7 +350,10 @@ export abstract class BasePatternDetector implements EndpointPatternDetector {
     if (!node) return defaultValue;
     
     try {
-      return converterFn(node);
+      if (BasePatternDetector.isINode(node)) {
+        return converterFn(node);
+      }
+      return defaultValue;
     } catch (e) {
       return defaultValue;
     }
