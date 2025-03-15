@@ -9,12 +9,13 @@ import { INode, NodeKind, NodeLocation } from '../interfaces/INode';
 import { IFunction } from '../interfaces/IFunction';
 import { IParameter } from '../interfaces/IParameter';
 import { IType } from '../interfaces/IType';
+import { IVariable, VariableDeclarationKind } from '../interfaces/IVariable';
 import { ASTNodeSnapshot } from './MockProvider';
 
 /**
  * モックASTノードの実装クラス
  */
-export class MockNode implements INode, IFunction {
+export class MockNode implements INode, IFunction, IParameter, IVariable {
   private kind: NodeKind;
   private text: string;
   private location: NodeLocation;
@@ -203,40 +204,140 @@ export class MockNode implements INode, IFunction {
   }
 
   getParameters(): IParameter[] {
-    // 簡易実装: パラメーター子ノードを探す
-    return [];
+    // プロパティからパラメーター情報を取得
+    const params = this.getProperty<ASTNodeSnapshot[]>('parameters');
+    if (params && Array.isArray(params)) {
+      return params.map(param => new MockNode(param, this as INode, this.sourceFile) as unknown as IParameter);
+    }
+    
+    // パラメーター子ノードを探す
+    return this.getChildren()
+      .filter(node => node.getKind() === NodeKind.ParameterDeclaration)
+      .map(node => node as unknown as IParameter);
   }
 
   getReturnType(): IType | null {
-    return null;
+    // 簡易実装: モックプロバイダーではnullを返す
+    // 将来的にはプロパティから型情報を取得できるようにする
+    return this.getProperty<IType>('returnType') || null;
   }
 
-  getBody(): INode | null {
+  getBody(): INode | undefined {
     // 関数本体のブロックを探す
-    return this.getChildren().find(node => node.getKind() === NodeKind.Block) || null;
+    return this.getChildren().find(node => node.getKind() === NodeKind.Block);
   }
 
   isArrowFunction(): boolean {
-    return false;
+    return this.getProperty<boolean>('isArrowFunction') || false;
   }
 
   isMethodDeclaration(): boolean {
-    return false;
+    return this.getKind() === NodeKind.MethodDeclaration || this.getProperty<boolean>('isMethodDeclaration') || false;
   }
 
   getDocumentation(): string {
-    return '';
+    return this.getProperty<string>('documentation') || '';
+  }
+
+  /**
+   * IParameterインターフェースの実装
+   */
+  getType(): IType | null {
+    // 簡易実装: モックプロバイダーではnullを返す
+    // 将来的にはプロパティから型情報を取得できるようにする
+    return this.getProperty<IType>('type') || null;
+  }
+
+  isOptional(): boolean {
+    return this.getProperty<boolean>('isOptional') || false;
+  }
+
+  isRestParameter(): boolean {
+    return this.getProperty<boolean>('isRestParameter') || false;
+  }
+
+  getDefaultValue(): INode | null {
+    const defaultValue = this.getProperty<ASTNodeSnapshot>('defaultValue');
+    if (defaultValue) {
+      return new MockNode(defaultValue, this as INode, this.sourceFile);
+    }
+    return null;
+  }
+
+  hasDefaultValue(): boolean {
+    return this.getProperty<boolean>('hasDefaultValue') || 
+           this.getProperty<ASTNodeSnapshot>('defaultValue') !== undefined;
+  }
+
+  /**
+   * 変数の初期化子（= の右側）を取得する
+   * @returns 初期化子ノード（存在しない場合はundefined）
+   */
+  getInitializer(): INode | undefined {
+    const initializer = this.getProperty<ASTNodeSnapshot>('initializer');
+    if (initializer) {
+      return new MockNode(initializer, this as INode, this.sourceFile) as INode;
+    }
+    return undefined;
+  }
+
+  getModifiers(): string[] {
+    return this.getProperty<string[]>('modifiers') || [];
+  }
+
+  /**
+   * IVariableインターフェースの実装
+   */
+  getDeclarationKind(): VariableDeclarationKind {
+    return this.getProperty<VariableDeclarationKind>('declarationKind') || VariableDeclarationKind.Let;
+  }
+
+  isConst(): boolean {
+    return this.getDeclarationKind() === VariableDeclarationKind.Const;
+  }
+
+  hasInitializer(): boolean {
+    return this.getProperty<boolean>('hasInitializer') || 
+           this.getProperty<ASTNodeSnapshot>('initializer') !== undefined;
+  }
+
+  isArrayDestructuring(): boolean {
+    return this.getProperty<boolean>('isArrayDestructuring') || false;
+  }
+
+  isObjectDestructuring(): boolean {
+    return this.getProperty<boolean>('isObjectDestructuring') || false;
+  }
+
+  hasLiteralInitializer(): boolean {
+    const initializer = this.getInitializer();
+    if (!initializer) return false;
+    
+    const kind = initializer.getKind();
+    return kind === NodeKind.StringLiteral || 
+           kind === NodeKind.NumericLiteral || 
+           kind === NodeKind.TrueLiteral || 
+           kind === NodeKind.FalseLiteral || 
+           kind === NodeKind.NullLiteral ||
+           kind === NodeKind.NoSubstitutionTemplateLiteral;
+  }
+
+  getLiteralValue(): string {
+    const initializer = this.getInitializer();
+    if (!initializer || !this.hasLiteralInitializer()) return '';
+    
+    return initializer.getText();
   }
   
   /**
    * ノード内の式を取得する
    * @returns 式ノード（CallExpressionなどの場合）
    */
-  getExpression(): INode | null {
+  getExpression(): INode {
     // プロパティに保存されている場合はそれを返す
     const expressionNode = this.getProperty<ASTNodeSnapshot>('expression');
     if (expressionNode) {
-      return new MockNode(expressionNode, this, this.sourceFile);
+      return new MockNode(expressionNode, this as INode, this.sourceFile) as INode;
     }
 
     // 子ノードに式がある場合、最初のノードを返す
@@ -246,7 +347,8 @@ export class MockNode implements INode, IFunction {
       return children[0];
     }
 
-    return null;
+    // 式が見つからない場合は自身を返す
+    return this as INode;
   }
   
   /**
@@ -273,7 +375,7 @@ export class MockNode implements INode, IFunction {
     // プロパティに保存されている場合はそれを返す
     const args = this.getProperty<ASTNodeSnapshot[]>('arguments');
     if (args && Array.isArray(args)) {
-      return args.map(arg => new MockNode(arg, this, this.sourceFile));
+      return args.map(arg => new MockNode(arg, this as INode, this.sourceFile) as INode);
     }
 
     // コール式の場合、最初のノード以外を引数とみなす
