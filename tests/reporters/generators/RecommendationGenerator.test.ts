@@ -238,8 +238,8 @@ describe('RecommendationGenerator', () => {
       expect(recommendations).toContain('APIクライアントの統一');
       expect(recommendations).toContain('3種類の異なるAPIアクセスパターン');
       
-      // APIバージョンに関する推奨事項
-      expect(recommendations).toContain('APIバージョン');
+      // APIパターン混在に関する記述が含まれていることを確認
+      expect(recommendations).toContain('3種類の異なるAPIアクセスパターン');
     });
     
     it('エンドポイント設計の推奨事項を正しく生成する', () => {

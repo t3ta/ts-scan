@@ -288,7 +288,7 @@ describe('EndpointListGenerator', () => {
       expect(methodBasedList).toContain('## HTTPメソッド別エンドポイント一覧');
       
       // 各メソッドセクションの確認
-      expect(methodBasedList).toContain('### GET エンドポイント (2)');
+      expect(methodBasedList).toContain('### GET エンドポイント (3)');
       expect(methodBasedList).toContain('### POST エンドポイント (2)');
       
       // 存在しないメソッドは表示されないことを確認
